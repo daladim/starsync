@@ -1,0 +1,44 @@
+[package]
+name = "starsync"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+# This feature will make DEBUG_FOLDER mock a valid device
+debug_folder = ["once_cell"]
+
+
+[dependencies]
+clap = { version = "4.1", features = ["derive"] }
+sysinfo = { version = "0.28", features = [] }
+time = { version = "0.3", features = ["serde"] }
+serde = { version = "1.0", features = ["serde_derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+sanitize-filename = "0.4"
+diffy = "0.3"
+m3u = "1.0"
+log = "0.4"
+once_cell = { version = "1.17", optional = true }
+env_logger = "0.10"
+
+[target.'cfg(windows)'.dependencies]
+itunes-com = { version = "0.1", features = ["wrappers"] }
+winmtp = "0.1"
+windows = { version = "0.44.0", features = [
+    "implement",
+    "Win32_System_Com",
+    "Win32_System_Ole",
+    "Win32_Foundation"
+] }
+
+
+[dev-dependencies]
+rand = "0.8"
+
+[patch.crates-io]
+itunes-com = { path = "../itunes-com" }
+winmtp = { path = "../winmtp" }
+diffy = { path = "../diffy" }
