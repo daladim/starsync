@@ -14,6 +14,7 @@ use itunes::ITunes;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ItemId(pub u64);
 
+/// The user rating of a track (None, or between 1 and 5 stars)
 pub type Rating = Option<u8>;
 
 pub trait Source {

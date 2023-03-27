@@ -67,6 +67,7 @@ pub struct FileData {
 #[derive(Debug)]
 pub struct FileSet {
     pub common_ancestor: PathBuf,
+    /// A hashmap indexed by absolute paths on the source
     pub files_data: HashMap<PathBuf, FileData>,
     /// Total size of this file set, in bytes
     pub total_size: usize,
@@ -109,7 +110,7 @@ mod test {
         assert_eq!(ActualPlaylistKind::classify("Favourites - 1 stars"), ActualPlaylistKind::Regular("Favourites - 1 stars".to_string()));
         assert_eq!(ActualPlaylistKind::classify("abc.m3u"), ActualPlaylistKind::Regular("abc.m3u".to_string()));
 
-        assert_eq!(ActualPlaylistKind::classify(&favourites_playlist_name(3)), ActualPlaylistKind::Ratings(3));
+        assert_eq!(ActualPlaylistKind::classify(&favourites_playlist_name(3).to_string_lossy().to_string()), ActualPlaylistKind::Ratings(3));
 
         assert!(ActualPlaylistKind::classify("abc.m3u").matches(RequestedPlaylistKind::Regular));
         assert!(ActualPlaylistKind::classify("Favourites - 4 stars.m3u").matches(RequestedPlaylistKind::Ratings));

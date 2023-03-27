@@ -2,7 +2,6 @@
 
 pub mod source;
 pub mod device;
-pub mod objects;
 pub mod config;
 pub mod sync;
 pub mod utils;

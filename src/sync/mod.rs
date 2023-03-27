@@ -1,8 +1,7 @@
 //! Functions to sync a device against its source
 //!
 //! This process is supposed to be somehow interactive, because it may include some prompts to the user.<br/>
-//! This is why its API is split into several structs, supposed to be used consecutively.<br/>
-//! A sync process starts by building a [`SyncBuilder`].
+//! A sync process starts by building a [`SyncManager`].
 
 use std::path::{Path, PathBuf};
 use std::ffi::OsStr;
@@ -30,6 +29,8 @@ use utils::favourites_playlist_name;
 /// How many warnings have been issued
 pub type Warnings = usize;
 
+type PlaylistsSet = HashMap<String, (ItemId, Vec<ItemId>)>;
+
 #[derive(thiserror::Error, Debug)]
 pub enum SyncError {
     #[error("Source {0} not found")]
@@ -54,7 +55,6 @@ pub enum SyncError {
     #[error("Files have no common ancestor, there is no way to know how they should be saved into the device")]
     NoCommonAncestor,
 }
-
 
 pub struct SyncManager {
     device: Box<dyn Device>,
@@ -92,7 +92,7 @@ impl SyncManager {
         Ok( Self{device, source, config, previous_sync_infos} )
     }
 
-    /// Performs some sanity check, and returns their result
+    /// Perform some sanity check, have the user review them, and run the sync
     ///
     /// # Workflow
     ///
@@ -131,16 +131,24 @@ impl SyncManager {
 
     /* not pub, see `start_sync` instead */ fn sync_inner (&self, status_tx: &status::Sender) -> Result<(), SyncError> {
         status_tx.send_progress(Progress::Started);
+
         let previous_sync_info = self.device.previous_sync_infos();
+        if let Some(si) = &previous_sync_info {
+            status_tx.send_info(format!("Last sync at {} on {}", si.timestamp(), si.hostname()))
+        }
 
         let files_on_device = files_on_device(status_tx, self.device.as_ref())?;
 
         // Reverse sync
-        reverse_sync_playlists(status_tx, &previous_sync_info, self.source.as_ref(), self.device.as_ref());
+        if let Err(err) = reverse_sync_playlists(status_tx, &previous_sync_info, self.source.as_ref(), self.device.as_ref()) {
+            status_tx.send_warning(format!("{:?}", err));
+        }
 
         // Reverse sync for ratings
         if self.config.include_stars() {
-            reverse_sync_ratings(status_tx, &previous_sync_info, &files_on_device, self.source.as_ref(), self.device.as_ref());
+            if let Err(err) = reverse_sync_ratings(status_tx, &previous_sync_info, &files_on_device, self.source.as_ref(), self.device.as_ref()) {
+                status_tx.send_warning(format!("{:?}", err));
+            }
         }
 
         // Build the list of files that should be on the device
@@ -215,7 +223,15 @@ fn m3u_to_song_ids(status_tx: &status::Sender, playlist: M3u, previous_sync_info
         .collect()
 }
 
-fn reverse_sync_playlists(status_tx: &status::Sender, previous_sync_info: &Option<SyncInfo>, source: &dyn Source, device: &dyn Device) {
+
+#[derive(thiserror::Error, Debug)]
+pub enum ReverseSyncPlaylistError {
+    #[error("Unable to get playlists from device: {0}")]
+    ListingDevicePlaylistsFailed(SyncError),
+}
+
+
+fn reverse_sync_playlists(status_tx: &status::Sender, previous_sync_info: &Option<SyncInfo>, source: &dyn Source, device: &dyn Device) -> Result<(), ReverseSyncPlaylistError>  {
     status_tx.send_progress(Progress::ReverseSyncPlaylists);
 
     let previous_sync_info = match previous_sync_info {
@@ -223,17 +239,12 @@ fn reverse_sync_playlists(status_tx: &status::Sender, previous_sync_info: &Optio
         None => {
             // In case there was no previous sync, there is nothing to reverse sync.
             status_tx.send_info("This seems to be the first time this device is synced. Not performing reverse sync for playlists");
-            return;
+            return Ok(());
         }
     };
 
-    let playlists_on_device = match playlists_on_device(status_tx, RequestedPlaylistKind::Regular, device, previous_sync_info) {
-        Err(err) => {
-            status_tx.send_warning(format!("Unable to get playlists from device: {}", err));
-            return;
-        },
-        Ok(lists) => lists,
-    };
+    let playlists_on_device = playlists_on_device(status_tx, RequestedPlaylistKind::Regular, device, previous_sync_info)
+        .map_err(|err| ReverseSyncPlaylistError::ListingDevicePlaylistsFailed(err))?;
 
     // Convert file paths to song IDs
     let playlists_on_device: HashMap<String, Vec<ItemId>> = playlists_on_device.into_iter()
@@ -254,6 +265,8 @@ fn reverse_sync_playlists(status_tx: &status::Sender, previous_sync_info: &Optio
             }
         }
     }
+
+    Ok(())
 }
 
 fn reverse_sync_ratings(
@@ -262,7 +275,8 @@ fn reverse_sync_ratings(
     files_on_device: &HashSet<PathBuf>,
     source: &dyn Source,
     device: &dyn Device,
-) {
+) -> Result<(), ReverseSyncPlaylistError> {
+    //
     //
     //
     //
@@ -277,17 +291,12 @@ fn reverse_sync_ratings(
         None => {
             // In case there was no previous sync, there is nothing to reverse sync.
             status_tx.send_info("This seems to be the first time this device is synced. Not performing reverse sync for ratings");
-            return;
+            return Ok(());
         }
     };
 
-    let rating_playlists_on_device = match playlists_on_device(status_tx, RequestedPlaylistKind::Ratings, device, previous_sync_info) {
-        Err(err) => {
-            status_tx.send_warning(format!("Unable to get ratings from device: {}", err));
-            return;
-        },
-        Ok(lists) => lists,
-    };
+    let rating_playlists_on_device = playlists_on_device(status_tx, RequestedPlaylistKind::Ratings, device, previous_sync_info)
+       .map_err(|err| ReverseSyncPlaylistError::ListingDevicePlaylistsFailed(err))?;
 
     // Get the IDs of every file on the device
     // This will be useful when detecting track that have no rating
@@ -355,6 +364,8 @@ fn reverse_sync_ratings(
             }
         }
     }
+
+    Ok(())
 }
 
 fn reverse_sync_playlist(status_tx: &status::Sender, source: &dyn Source, playlist_name: &str, playlist_id: ItemId, ancestor_song_ids: &[ItemId], device_song_ids: &[ItemId]) -> Result<(), Box<dyn Error>> {
@@ -399,7 +410,7 @@ fn required_files(status_tx: &status::Sender, source: &dyn Source, config: &Conf
                         for track in tracks {
                             match track.absolute_path() {
                                 Err(err) => status_tx.send_warning(format!("Unable to get path for song '{}': {}", track.name(), err)),
-                                Ok(path) => {
+                                Ok(absolute_path) => {
                                     let file_size = match track.file_size() {
                                         Err(err) => {
                                             status_tx.send_warning(format!("Unable to get file size for song '{}': {}", track.name(), err));
@@ -411,7 +422,7 @@ fn required_files(status_tx: &status::Sender, source: &dyn Source, config: &Conf
                                     let rating = track.rating();
 
                                     if files_data.insert(
-                                        path.clone(),
+                                        absolute_path.clone(),
                                         FileData{ file_size, id: track.id(), rating }
                                     ).is_some() {
                                         // We've already kept track of this file, as it is in duplicate playlists.
@@ -467,7 +478,6 @@ fn sync_files(status_tx: &status::Sender, file_set: &FileSet, files_on_device: &
     }
 
     for file_to_push in files_to_push {
-        // TODO: optim: have a single data structure (hashmap) that contains both absolute and relative file, so that there is no need to re-build it here
         status_tx.send(Message::PushingFile(file_to_push.display().to_string()));
         let local_absolute_path = common_ancestor.join(file_to_push);
         if let Err(err) = device.push_music_file(&local_absolute_path, file_to_push) {
@@ -571,7 +581,7 @@ fn populate_device_files(status_tx: &status::Sender, root_folder_path: &Path, fi
 }
 
 
-fn update_playlists(status_tx: &status::Sender, source: &dyn Source, device: &dyn Device, config: &Config, common_ancestor: &Path) -> Result<HashMap<String, (ItemId, Vec<ItemId>)>, SyncError> {
+fn update_playlists(status_tx: &status::Sender, source: &dyn Source, device: &dyn Device, config: &Config, common_ancestor: &Path) -> Result<PlaylistsSet, SyncError> {
     status_tx.send_progress(Progress::PushingPlaylists);
     let main_folder = device.starsync_folder().ok_or(SyncError::DeviceReadError)?;
 
@@ -600,7 +610,7 @@ fn remove_current_playlists(status_tx: &status::Sender, main_folder: &dyn Folder
     Ok(())
 }
 
-fn push_playlists(status_tx: &status::Sender, device: &dyn Device, source: &dyn Source, config: &Config, common_ancestor: &Path) -> HashMap<String, (ItemId, Vec<ItemId>)> {
+fn push_playlists(status_tx: &status::Sender, device: &dyn Device, source: &dyn Source, config: &Config, common_ancestor: &Path) -> PlaylistsSet {
     let mut pushed_playlists = HashMap::new();
 
     for playlist_name in config.playlists() {
@@ -663,7 +673,7 @@ fn push_star_playlists(status_tx: &status::Sender, device: &dyn Device, file_set
     }
 }
 
-fn update_sync_info(device: &dyn Device, file_set: FileSet, playlists: HashMap<String, (ItemId, Vec<ItemId>)>) -> Result<(), Box<dyn Error>> {
+fn update_sync_info(device: &dyn Device, file_set: FileSet, playlists: PlaylistsSet) -> Result<(), Box<dyn Error>> {
     let FileSet{ common_ancestor, files_data, .. } = file_set;
     let song_data_to_serialize = files_data
         .iter()

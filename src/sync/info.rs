@@ -8,13 +8,7 @@ use time::OffsetDateTime;
 
 use crate::source::ItemId;
 use crate::source::Rating;
-
-//
-//
-//
-//
-//
-// TODO name a type for HashMap<String, (ItemId, Vec<ItemId>)>
+use super::PlaylistsSet;
 
 /// Some info about a sync
 ///
@@ -28,11 +22,11 @@ pub struct SyncInfo {
     timestamp: time::OffsetDateTime,
     common_ancestor: PathBuf,
     song_data: HashMap<PathBuf, (ItemId, Rating)>,
-    playlists: HashMap<String, (ItemId, Vec<ItemId>)>,
+    playlists: PlaylistsSet,
 }
 
 impl SyncInfo {
-    pub fn new(common_ancestor: PathBuf, song_data: HashMap<PathBuf, (ItemId, Rating)>, playlists: HashMap<String, (ItemId, Vec<ItemId>)>) -> Self {
+    pub fn new(common_ancestor: PathBuf, song_data: HashMap<PathBuf, (ItemId, Rating)>, playlists: PlaylistsSet) -> Self {
         let hostname = crate::utils::current_hostname();
         let timestamp = OffsetDateTime::now_utc();
         Self{ hostname, timestamp, common_ancestor, song_data, playlists }
@@ -40,6 +34,10 @@ impl SyncInfo {
 
     pub fn hostname(&self) -> &str {
         &self.hostname
+    }
+
+    pub fn timestamp(&self) -> &time::OffsetDateTime {
+        &self.timestamp
     }
 
     pub fn id_for_relative_path(&self, relative_path: &Path) -> Option<ItemId> {

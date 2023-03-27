@@ -146,7 +146,7 @@ impl super::Device for LocalDevice {
         let config_folder = self.config_folder_impl().ok_or("Missing StarSync folder")?;
         let info_path = config_folder.join(crate::device::SYNC_INFO_FILE);
         let info_file = std::fs::File::create(info_path).map_err(|err| format!("Unable to write to device: {}", err))?;
-        serde_json::to_writer_pretty(&info_file, sync_infos).map_err(|err| format!("Unable to write the sync info file: {}", err))?;
+        serde_json::to_writer(&info_file, sync_infos).map_err(|err| format!("Unable to write the sync info file: {}", err))?;
         Ok(())
     }
 

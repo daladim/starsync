@@ -9,7 +9,6 @@ use itunes_com::wrappers::IITPlaylistWrapper;
 use itunes_com::wrappers::IITTrackWrapper;
 use itunes_com::wrappers::ITunesRelatedObject;
 use itunes_com::wrappers::Iterable;
-use itunes_com::sys::ITSourceKind;
 
 use super::{Source, Playlist, Track, ItemId};
 
@@ -29,30 +28,13 @@ impl Source for ITunes {
     }
 
     fn playlists(&self) -> Result<Vec<Box<dyn Playlist>>, Box<dyn Error>> {
-        let mut lists = Vec::new();
-
-        for source in self.inner.Sources()?.iter()? {
-            if source.Kind()? == ITSourceKind::ITSourceKindLibrary {
-                for list in source
-                    .Playlists()?
-                    .iter()?
-                    //
-                    //
-                    //
-                    //
-                    // TODO: what if we want to sync the 'Library' playlist?
-                    //       macro to impl Playlist for both?
-                    //
-                    // .filter(|list| [ITPlaylistKind::ITPlaylistKindUser, ITPlaylistKind::ITPlaylistKindLibrary].contains(&list.Kind().unwrap_or(ITPlaylistKind::ITPlaylistKindUnknown)))
-                    .filter_map(|list| list.as_user_playlist())
-                {
-                    lists.push(Box::new(list) as Box<dyn Playlist>);
-                }
-                break;
-            }
-        }
-
-        Ok(lists)
+        Ok(self.inner.LibrarySource()?
+            .Playlists()?
+            .iter()?
+            // it turns out thre is a "Music" user playlist, so there is no need grabbing also the LibraryPlaylist in this filter
+            .filter_map(|list| list.as_user_playlist())
+            .map(|list| Box::new(list) as Box<dyn Playlist>)
+            .collect())
     }
 
     fn playlist_by_name(&self, name: &str) -> Option<Box<dyn Playlist>> {
@@ -142,10 +124,6 @@ impl Playlist for ITUserPlaylist {
                         let required_track = itunes_get_track_by_id(&self.iTunes_instance(), *required_id)
                             .ok_or(format!("Unable to find track with ID {:?}", required_id))?;
 
-                        // let foct = required_track.as_file_or_cd_track().ok_or_else(|| format!("Track {} is not a local file", required_track.name()))?;
-                        // let location = foct.Location()?;
-                        // self.AddFile(&location)?;
-
                         self.AddTrack(&required_track.as_variant())?;
                         break;
                     }
@@ -214,14 +192,3 @@ impl Track for ITTrack {
         Ok(focdt.Size()?.try_into()?)
     }
 }
-
-// impl std::convert::From<ObjectIDs> for ItemId {
-//     fn from(value: ObjectIDs) -> Self {
-//         let mut bytes = [0; 16];
-//         bytes[0..4].clone_from_slice(&value.sourceID.to_le_bytes());
-//         bytes[4..8].clone_from_slice(&value.playlistID.to_le_bytes());
-//         bytes[8..12].clone_from_slice(&value.trackID.to_le_bytes());
-//         bytes[12..16].clone_from_slice(&value.databaseID.to_le_bytes());
-//         ItemId(u128::from_le_bytes(bytes))
-//     }
-// }
