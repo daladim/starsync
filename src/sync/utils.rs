@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{PathBuf, Path};
 
 use crate::source::{ItemId, Rating};
@@ -93,10 +93,44 @@ impl FileSet {
 }
 
 
+pub struct CaseInsensitiveDiff<'a> {
+    // iterator of the first set
+    iter: std::collections::hash_set::Iter<'a, PathBuf>,
+    // the second set
+    other: HashSet<PathBuf>,
+}
+
+
+pub fn case_insensitive_difference<'a>(left: &'a HashSet<PathBuf>, right: &HashSet<PathBuf>) -> CaseInsensitiveDiff<'a> {
+    CaseInsensitiveDiff{
+        iter: left.iter(),
+        other: right.iter().map(|item| PathBuf::from(item.to_string_lossy().to_lowercase())).collect(),
+    }
+}
+
+impl<'a> std::iter::Iterator for CaseInsensitiveDiff<'a> {
+    type Item = &'a PathBuf;
+
+    #[inline]
+    fn next(&mut self) -> Option<&'a PathBuf> {
+        loop {
+            let elt = self.iter.next()?;
+            if !self.other.contains(Path::new(&elt.to_string_lossy().to_lowercase())) {
+                return Some(elt);
+            }
+        }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_, upper) = self.iter.size_hint();
+        (0, upper)
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::{ActualPlaylistKind, RequestedPlaylistKind};
-    use super::favourites_playlist_name;
+    use super::*;
 
     #[test]
     fn test_classify_playlist() {
@@ -114,5 +148,26 @@ mod test {
 
         assert!(ActualPlaylistKind::classify("abc.m3u").matches(RequestedPlaylistKind::Regular));
         assert!(ActualPlaylistKind::classify("Favourites - 4 stars.m3u").matches(RequestedPlaylistKind::Ratings));
+    }
+
+    #[test]
+    fn test_case_insensitive_sets() {
+        let left: HashSet<PathBuf> = [
+            "C:\\Users\\John\\File.DAT",
+            "C:\\Users\\jack\\stuff.mp3",
+            "left",
+            "C:\\Users\\paul\\fancy.exe",
+        ].iter().map(|item| PathBuf::from(item)).collect();
+
+        let right: HashSet<PathBuf> = [
+            "right",
+            "c:\\users\\john\\file.dat",
+            "C:\\Users\\jack\\stuff.mp3",
+            "C:\\Users\\PAUL\\Fancy.exe",
+        ].iter().map(|item| PathBuf::from(item)).collect();
+
+        let diff: Vec<PathBuf> = case_insensitive_difference(&left, &right).map(|p| p.clone()).collect();
+        assert_eq!(diff.len(), 1);
+        assert_eq!(diff.get(0), Some(&PathBuf::from("left")));
     }
 }

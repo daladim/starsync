@@ -41,12 +41,14 @@ impl SyncInfo {
     }
 
     pub fn id_for_relative_path(&self, relative_path: &Path) -> Option<ItemId> {
-        let full_path = self.common_ancestor.join(relative_path);
-        self.song_data.get(&full_path).map(|data| data.0)
+        let lowercase_path = PathBuf::from(relative_path.to_string_lossy().to_lowercase());
+        self.song_data.get(&lowercase_path).map(|data| data.0)
     }
 
     pub fn id_for_full_path(&self, path: &Path) -> Option<ItemId> {
-        self.song_data.get(path).map(|data| data.0)
+        let relative_path = path.strip_prefix(&self.common_ancestor).unwrap_or(path);
+        let lowercase_path =  PathBuf::from(relative_path.to_string_lossy().to_lowercase());
+        self.song_data.get(&lowercase_path).map(|data| data.0)
     }
 
     pub fn rating_for_id(&self, needle: ItemId) -> Rating {

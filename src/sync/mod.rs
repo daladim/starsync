@@ -24,7 +24,7 @@ pub use info::SyncInfo;
 
 mod utils;
 use utils::{FileSet, FileData, RequestedPlaylistKind, ActualPlaylistKind};
-use utils::favourites_playlist_name;
+use utils::{favourites_playlist_name, case_insensitive_difference};
 
 /// How many warnings have been issued
 pub type Warnings = usize;
@@ -460,9 +460,9 @@ fn sync_files(status_tx: &status::Sender, file_set: &FileSet, files_on_device: &
         )
         .collect();
 
-    // What files are there already?
-    let files_to_remove = files_on_device.difference(&relative_files);
-    let files_to_push = relative_files.difference(files_on_device);
+    // What files are there on the device already?
+    let files_to_remove = case_insensitive_difference(&files_on_device, &expected_files);
+    let files_to_push = case_insensitive_difference(&expected_files, &files_on_device);
 
     // Actually sync files
     status_tx.send_progress(Progress::SyncingFiles);
@@ -560,7 +560,7 @@ fn populate_device_files(status_tx: &status::Sender, root_folder_path: &Path, fi
         Ok(files) => {
             for file in files {
                 let full_path = file.path();
-                match file.path().strip_prefix(root_folder_path) {
+                match full_path.strip_prefix(root_folder_path) {
                     Err(_err) => status_tx.send_warning(format!("Found a file ({:?}) that is not included in the root folder {:?}", full_path, root_folder_path)),
                     Ok(rel) => {
                         files_on_device.insert(rel.to_owned());
@@ -678,7 +678,7 @@ fn update_sync_info(device: &dyn Device, file_set: FileSet, playlists: Playlists
     let song_data_to_serialize = files_data
         .iter()
         .map(|(path, FileData{id, rating, ..})|
-            (path.clone(), (*id, *rating)))
+            (PathBuf::from(path.to_string_lossy().to_lowercase()), (*id, *rating)))
         .collect();
     let sync_info = SyncInfo::new(
         common_ancestor,
