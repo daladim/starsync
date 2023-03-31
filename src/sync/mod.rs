@@ -398,7 +398,7 @@ fn required_files(status_tx: &status::Sender, source: &dyn Source, config: &Conf
     status_tx.send_progress(Progress::ListingFiles);
 
     let mut total_size = 0;
-    let mut files_data = HashMap::new();
+    let mut data_with_absolute_paths = HashMap::new();
 
     for playlist_name in config.playlists() {
         match source.playlist_by_name(playlist_name) {
@@ -421,7 +421,7 @@ fn required_files(status_tx: &status::Sender, source: &dyn Source, config: &Conf
 
                                     let rating = track.rating();
 
-                                    if files_data.insert(
+                                    if data_with_absolute_paths.insert(
                                         absolute_path.clone(),
                                         FileData{ file_size, id: track.id(), rating }
                                     ).is_some() {
@@ -441,24 +441,30 @@ fn required_files(status_tx: &status::Sender, source: &dyn Source, config: &Conf
     }
 
     // Get the common ancestor for all these files
-    let common_ancestor = crate::common_path::common_path_all(files_data.keys()).ok_or(SyncError::NoCommonAncestor)?;
+    let common_ancestor = crate::common_path::common_path_all(data_with_absolute_paths.keys()).ok_or(SyncError::NoCommonAncestor)?;
 
-    Ok(FileSet{ common_ancestor, files_data, total_size })
+    // Strip the prefix from the set
+    let relative_files = data_with_absolute_paths
+        .into_iter()
+        .filter_map(|(path, file_data)| {
+            let stripped_path = path
+                .strip_prefix(&common_ancestor)
+                .map(|path| path.to_owned())
+                .map_err(|_err| status_tx.send_warning(format!("File '{:?}' is not a child of the root folder '{:?}'. Ignoring this file", path, common_ancestor)))
+                .ok();
+
+            stripped_path.map(|stripped_path| (stripped_path, file_data))
+        })
+        .collect();
+
+    Ok(FileSet{ common_ancestor, files_data: relative_files, total_size })
 }
 
 fn sync_files(status_tx: &status::Sender, file_set: &FileSet, files_on_device: &HashSet<PathBuf>, device: &dyn Device) -> Result<(), SyncError> {
     let FileSet{ files_data, common_ancestor, .. } = file_set;
 
     // What files should there be on the device?
-    let relative_files: HashSet<PathBuf> = files_data
-        .keys()
-        .filter_map(|path| path
-            .strip_prefix(common_ancestor)
-            .map(|path| path.to_owned())
-            .map_err(|_err| status_tx.send_warning(format!("File '{:?}' is not a child of the root folder '{:?}'. Ignoring this file", path, common_ancestor)))
-            .ok()
-        )
-        .collect();
+    let expected_files: HashSet<PathBuf> = files_data.keys().map(|r| r.to_path_buf()).collect();
 
     // What files are there on the device already?
     let files_to_remove = case_insensitive_difference(&files_on_device, &expected_files);
@@ -658,9 +664,8 @@ fn push_star_playlists(status_tx: &status::Sender, device: &dyn Device, file_set
     for (rating, songs) in file_set.song_paths_by_rating().iter() {
         match crate::source::create_m3u(
             songs.iter(),
-            &file_set.common_ancestor,
-            Path::new(crate::device::MUSIC_FOLDER_NAME))
-        {
+            Path::new(crate::device::MUSIC_FOLDER_NAME)
+        ) {
             Err(err) => status_tx.send_warning(format!("Unable to generate m3u file for songs rated {} stars: {}", rating, err)),
             Ok(m3u_content) => {
                 let playlist_file_name = favourites_playlist_name(*rating);

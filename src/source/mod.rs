@@ -43,12 +43,16 @@ pub trait Playlist {
     }
 
     fn to_m3u(&self, common_ancestor: &Path, prefix_to_add: &Path) -> Result<String, Box<dyn Error>> {
-        let mut absolute_paths = Vec::new();
+        let mut relative_paths = Vec::new();
         for track in self.tracks()?.iter() {
-            absolute_paths.push(track.absolute_path()?)
+            let relative_path = track.absolute_path()?
+                .strip_prefix(common_ancestor)
+                .map(|r| r.to_path_buf())
+                .map_err(|_| format!("Track '{}' is not a child of the common ancestor '{}'", track.name(), common_ancestor.display()))?;
+            relative_paths.push(relative_path)
         }
 
-        create_m3u(absolute_paths.iter(), common_ancestor, prefix_to_add)
+        create_m3u(relative_paths.iter(), prefix_to_add)
     }
 }
 
@@ -61,13 +65,10 @@ pub trait Track {
     fn file_size(&self) -> Result<usize, Box<dyn Error>>;
 }
 
-pub fn create_m3u<T: Iterator<Item = P>, P: AsRef<Path>>(songs_absolute_paths: T, common_ancestor: &Path, prefix_to_add: &Path) -> Result<String, Box<dyn Error>> {
+pub fn create_m3u<T: Iterator<Item = P>, P: AsRef<Path>>(songs_relative_paths: T, prefix_to_add: &Path) -> Result<String, Box<dyn Error>> {
     let mut relative_paths = Vec::new();
-    for path in songs_absolute_paths {
-        let stripped_path = path.as_ref()
-            .strip_prefix(common_ancestor)
-            .unwrap_or(path.as_ref());
-        let path_str = prefix_to_add.join(stripped_path).to_string_lossy().to_string().replace('\\', "/");
+    for relative_path in songs_relative_paths {
+        let path_str = prefix_to_add.join(relative_path).to_string_lossy().to_string().replace('\\', "/");
         relative_paths.push(path_str);
     }
 

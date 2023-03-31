@@ -67,7 +67,7 @@ pub struct FileData {
 #[derive(Debug)]
 pub struct FileSet {
     pub common_ancestor: PathBuf,
-    /// A hashmap indexed by absolute paths on the source
+    /// A hashmap indexed by relative paths on the source
     pub files_data: HashMap<PathBuf, FileData>,
     /// Total size of this file set, in bytes
     pub total_size: usize,
