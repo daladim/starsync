@@ -6,13 +6,14 @@ use std::path::{Path, PathBuf};
 pub mod itunes;
 use itunes::ITunes;
 
-//
-//
-// TODO: implement as hex
-//
+mod serde_u64_hex_utils;
+
 /// A song (or playlist) ID
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct ItemId(pub u64);
+pub struct ItemId(
+    #[serde(with = "serde_u64_hex_utils")]
+    pub u64
+);
 
 /// The user rating of a track (None, or between 1 and 5 stars)
 pub type Rating = Option<u8>;

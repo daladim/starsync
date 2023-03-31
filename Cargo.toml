@@ -16,6 +16,7 @@ sysinfo = { version = "0.28", features = [] }
 time = { version = "0.3", features = ["serde"] }
 serde = { version = "1.0", features = ["serde_derive"] }
 serde_json = "1.0"
+hex = "0.4"
 thiserror = "1.0"
 sanitize-filename = "0.4"
 diffy = "0.3"
