@@ -46,10 +46,7 @@ impl Source for ITunes {
     }
 
     fn playlist_by_id(&self, id: ItemId) -> Option<Box<dyn Playlist>> {
-        self.inner.LibrarySource().ok()?
-            .Playlists().ok()?
-            .ItemByPersistentID(id.0).ok()
-            .and_then(|list| list.as_user_playlist())
+        itunes_get_playlist_by_id(&self.inner, id)
             .map(|list| Box::new(list) as Box<dyn Playlist>)
     }
 
@@ -66,6 +63,13 @@ fn itunes_get_track_by_id(i_tunes: &iTunes, id: ItemId) -> Option<ITTrack> {
         .ok()?
         .ItemByPersistentID(id.0)
         .ok()
+}
+
+fn itunes_get_playlist_by_id(i_tunes: &iTunes, id: ItemId) -> Option<ITUserPlaylist> {
+    i_tunes.LibrarySource().ok()?
+        .Playlists().ok()?
+        .ItemByPersistentID(id.0).ok()
+        .and_then(|list| list.as_user_playlist())
 }
 
 
@@ -98,48 +102,88 @@ impl Playlist for ITUserPlaylist {
         // iTunes has no functions to reorder playlists, only add() and delete()
         // This will do.
 
-        let get_i_th_track = |i| {
-            // For some reason, using ItemByPlayCount leads to strange bugs (looking like race conditions, such as getting many ITUNES_E_OBJECTDELETED errors)
-            // Using the plain `item()` is fine.
-            self.Tracks()?.item(i)
-        };
+        let playlist_id = ItemId(self.persistent_id()?);
+        let iTunes = self.iTunes_instance();
 
-        let mut i = 0;
-        for required_id in new_content {
-            i += 1;
-            loop {
-                match get_i_th_track(i) {
-                    Ok(i_th_track) => {
-                        if i_th_track.persistent_id() == Ok(required_id.0) {
-                            // Both lists match up to index i.
-                            // Let's proceed to the next required track
-                            break;
-                        } else {
-                            // Let's remove the non-matching track. Maybe the next one will
-                            i_th_track.Delete()?;
-                        }
-                    },
-                    Err(_) => {
-                        // The iTunes playlist has no more tracks. Let's add the one that is required.
-                        let required_track = itunes_get_track_by_id(&self.iTunes_instance(), *required_id)
-                            .ok_or(format!("Unable to find track with ID {:?}", required_id))?;
+        // Working around an iTunes bug (at least in 12.8.0.150)
+        // For some reason, iTunes sometimes returns Err(ITUNES_E_OBJECTDELETED)
+        // In this case, getting a new pointer to the playlist and try again should do
+        let mut attempts = 0;
+        loop {
+            let list = match itunes_get_playlist_by_id(&iTunes, playlist_id) {
+                Some(list) => list,
+                None => return Err("Unable to get iTunes library from ID".into()),
+            };
 
-                        self.AddTrack(&required_track.as_variant())?;
-                        break;
-                    }
+            match change_contents_to_inner(&list, new_content) {
+                Ok(()) => break,
+                Err(err) => {
+                    log::info!("Working around an iTunes bug ({}) when syncing the playlist. Trying again.", err);
+                    attempts += 1;
                 }
             }
-        }
 
-        // The head of the iTunes playlist matches the requirements.
-        // Are there remaining tracks to remove?
-        i += 1;
-        while let Ok(extra_track) = get_i_th_track(i) {
-            extra_track.Delete()?;
+            if attempts >= 10 {
+                return Err(format!("Too many ({}) iTunes bugs when syncing this playlist. Giving up.", attempts).into());
+            }
         }
 
         Ok(())
     }
+}
+
+fn change_contents_to_inner(playlist: &ITUserPlaylist, new_content: &[ItemId]) -> Result<(), Box<dyn Error>> {
+    let get_i_th_track = |i| {
+        // For some reason, using ItemByPlayOrder leads to strange bugs (looking like race conditions, such as getting many ITUNES_E_OBJECTDELETED errors)
+        // Using the plain `item()` is fine.
+        playlist.Tracks()?.item(i)
+    };
+
+    let mut i = 0;
+    for required_id in new_content {
+        i += 1;
+        loop {
+            match get_i_th_track(i) {
+                Ok(i_th_track) => {
+                    if i_th_track.persistent_id() == Ok(required_id.0) {
+                        // Both lists match up to index i.
+                        // Let's proceed to the next required track
+                        break;
+                    } else {
+                        // Let's remove the non-matching track. Maybe the next one will
+                        log::trace!("Deleting {:?}", i_th_track.name());
+                        i_th_track.Delete()?;
+                    }
+                },
+                Err(err) if err.code() == windows::Win32::Media::Multimedia::NS_E_PROPERTY_NOT_FOUND => {
+                    // The iTunes playlist has no more tracks. Let's add the one that is required.
+                    let required_track = itunes_get_track_by_id(&playlist.iTunes_instance(), *required_id)
+                        .ok_or(format!("Unable to find track with ID {:?}", required_id))?;
+
+                    // playlist.AddTrack(&required_track.as_variant())?;
+                    log::trace!("Adding {:?}", required_track.name());
+                    if let Err(err) = playlist.AddTrack(&required_track.as_variant()) {
+                        println!("WTF? {:?} when adding {}", err, required_track.name());
+                        return Err(Box::new(err) as Box<dyn Error>);
+                    }
+                    break;
+                },
+                Err(err) => {
+                    // This may be an ITUNES_E_OBJECTDELETED, at least in iTunes 12.8.0.150. That's an iTunes bug.
+                    return Err(Box::new(err) as Box<dyn Error>);
+                }
+            }
+        }
+    }
+
+    // The head of the iTunes playlist matches the requirements.
+    // Are there remaining tracks to remove?
+    i += 1;
+    while let Ok(extra_track) = get_i_th_track(i) {
+        extra_track.Delete()?;
+    }
+
+    Ok(())
 }
 
 impl Track for ITTrack {
