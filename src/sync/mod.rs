@@ -477,7 +477,7 @@ fn sync_files(status_tx: &status::Sender, file_set: &FileSet, files_on_device: &
         status_tx.send(Message::RemovingFile(file_to_remove.display().to_string()));
         if let Err(err) = device_root
             .file_at(file_to_remove)
-            .and_then(|f| f.delete())
+            .and_then(|mut f| f.delete())
         {
             status_tx.send_warning(format!("Unable to remove file at {}: {}", file_to_remove.display(), err))
         }
@@ -604,7 +604,7 @@ fn update_playlists(status_tx: &status::Sender, source: &dyn Source, device: &dy
 fn remove_current_playlists(status_tx: &status::Sender, main_folder: &dyn Folder) -> Result<(), SyncError> {
     let m3u_extension = OsStr::new("m3u");
 
-    for file in main_folder.files().map_err(|_| SyncError::DeviceReadError)? {
+    for mut file in main_folder.files().map_err(|_| SyncError::DeviceReadError)? {
         if file.path().extension() == Some(m3u_extension) {
             status_tx.send(Message::RemovingPlaylist(file.path().display().to_string()));
             if let Err(err) = file.delete() {
@@ -629,7 +629,7 @@ fn push_playlists(status_tx: &status::Sender, device: &dyn Device, source: &dyn 
                     Ok(m3u_content) => {
                         let device_relative_path = list.suitable_filename();
                         status_tx.send(Message::PushingPlaylist(playlist_name.to_string()));
-                        if let Err(err) = device.push_playlist(&m3u_content, &device_relative_path) {
+                        if let Err(err) = device.push_playlist(&m3u_content, &OsStr::new(&device_relative_path)) {
                             status_tx.send_warning(format!("Unable to push m3u file for playlist '{}': {}", playlist_name, err));
                         }
                     }
@@ -646,7 +646,7 @@ fn push_playlists(status_tx: &status::Sender, device: &dyn Device, source: &dyn 
                             .collect();
 
                         if let Some(_old_entry) = pushed_playlists.insert(
-                            list.suitable_filename().to_string_lossy().to_string(),
+                            list.suitable_filename(),
                             (playlist_id, song_ids)
                         ) {
                             status_tx.send_warning(format!("Duplicate playlists named '{}'", playlist_name));
@@ -669,9 +669,9 @@ fn push_star_playlists(status_tx: &status::Sender, device: &dyn Device, file_set
             Err(err) => status_tx.send_warning(format!("Unable to generate m3u file for songs rated {} stars: {}", rating, err)),
             Ok(m3u_content) => {
                 let playlist_file_name = favourites_playlist_name(*rating);
-                status_tx.send(Message::PushingPlaylist(playlist_file_name.to_string_lossy().to_string()));
-                if let Err(err) = device.push_playlist(&m3u_content, &playlist_file_name) {
-                    status_tx.send_warning(format!("Unable to push m3u file for rating playlist '{}': {}", playlist_file_name.display(), err));
+                status_tx.send(Message::PushingPlaylist(playlist_file_name.clone()));
+                if let Err(err) = device.push_playlist(&m3u_content, &OsStr::new(&playlist_file_name)) {
+                    status_tx.send_warning(format!("Unable to push m3u file for rating playlist '{}': {}", playlist_file_name, err));
                 }
             }
         }

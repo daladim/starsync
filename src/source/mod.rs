@@ -36,10 +36,10 @@ pub trait Playlist {
     /// This may merely re-order songs, but also remove or add songs.
     fn change_contents_to(&self, new_content: &[ItemId]) -> Result<(), Box<dyn Error>>;
 
-    fn suitable_filename(&self) -> PathBuf {
+    fn suitable_filename(&self) -> String {
         let mut sanitized_name = sanitize_filename::sanitize(self.name());
         sanitized_name.push_str(".m3u");
-        sanitized_name.into()
+        sanitized_name
     }
 
     fn to_m3u(&self, common_ancestor: &Path, prefix_to_add: &Path) -> Result<String, Box<dyn Error>> {

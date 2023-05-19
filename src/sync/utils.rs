@@ -51,8 +51,8 @@ impl ActualPlaylistKind {
     }
 }
 
-pub fn favourites_playlist_name(rating: u8) -> PathBuf {
-    PathBuf::from(format!("{}{}{}", RATINGS_PLAYLIST_PREFIX, rating, RATINGS_PLAYLIST_SUFFIX))
+pub fn favourites_playlist_name(rating: u8) -> String {
+    format!("{}{}{}", RATINGS_PLAYLIST_PREFIX, rating, RATINGS_PLAYLIST_SUFFIX)
 }
 
 

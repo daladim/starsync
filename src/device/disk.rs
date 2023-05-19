@@ -1,5 +1,6 @@
 //! Local disks (especially removeable drives) can be suitable devices
 
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::error::Error;
 use std::io::Read;
@@ -162,7 +163,7 @@ impl super::Device for LocalDevice {
         Ok(std::io::copy(&mut source, &mut dest).map(|_| ())?)
     }
 
-    fn push_playlist(&self, content: &str, playlist_name: &Path) -> Result<(), Box<dyn Error>> {
+    fn push_playlist(&self, content: &str, playlist_name: &OsStr) -> Result<(), Box<dyn Error>> {
         let dest_path = self.starsync_folder_path().join(playlist_name);
         if let Some(dest_folder) = dest_path.parent() {
             if dest_folder.is_dir() == false {
@@ -233,7 +234,7 @@ impl File for LocalFile {
     }
 
 
-    fn delete(&self) -> Result<(), Box<dyn Error>> {
+    fn delete(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(std::fs::remove_file(&self.0)?)
     }
 }

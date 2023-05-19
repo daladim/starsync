@@ -1,6 +1,7 @@
 //! Devices are e.g. USB thumbdrives, MTP devices (or rather, their "functional objects"), etc.
 
 use std::error::Error;
+use std::ffi::OsStr;
 use std::path::Path;
 use std::io::Read;
 
@@ -35,7 +36,7 @@ pub trait Device {
     /// Write a file into the device, creating parent folders if needed
     fn push_music_file(&self, local_absolute_path: &Path, device_relative_path: &Path) -> Result<(), Box<dyn Error>>;
     /// Write a playlist into the device, creating parent folders if needed
-    fn push_playlist(&self, content: &str, playlist_name: &Path) -> Result<(), Box<dyn Error>>;
+    fn push_playlist(&self, content: &str, playlist_name: &OsStr) -> Result<(), Box<dyn Error>>;
 
     /// A hint to explain the user where to look for the config file
     fn config_display_path(&self) -> String;
@@ -67,7 +68,7 @@ pub trait Folder {
 pub trait File {
     fn path(&self) -> &Path;
     fn get_reader(&self) -> Result<Box<dyn Read>, Box<dyn Error>>;
-    fn delete(&self) -> Result<(), Box<dyn Error>>;
+    fn delete(&mut self) -> Result<(), Box<dyn Error>>;
 }
 
 
