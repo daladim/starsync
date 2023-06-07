@@ -83,12 +83,14 @@ pub enum Message {
 pub enum Progress {
     /// Sync has started
     Started,
+    /// Scanning the files on the device
+    ListingFilesOnDevice,
     /// Reverse-syncing playlists
     ReverseSyncPlaylists,
     /// Reverse-syncing song ratings
     ReverseSyncRatings,
     /// Generating the list of files to sync
-    ListingFiles,
+    ListingFilesInSource,
     /// Currently syncing files
     SyncingFiles,
     /// Pushing the updated playlists to the device

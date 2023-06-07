@@ -395,7 +395,7 @@ fn reverse_sync_playlist(status_tx: &status::Sender, source: &dyn Source, playli
 }
 
 fn required_files(status_tx: &status::Sender, source: &dyn Source, config: &Config) -> Result<FileSet, Box<dyn Error>> {
-    status_tx.send_progress(Progress::ListingFiles);
+    status_tx.send_progress(Progress::ListingFilesInSource);
 
     let mut total_size = 0;
     let mut data_with_absolute_paths = HashMap::new();
@@ -550,6 +550,7 @@ fn playlists_on_device(status_tx: &status::Sender, requested_kind: RequestedPlay
 fn files_on_device(status_tx: &status::Sender, device: &dyn Device) -> Result<HashSet<PathBuf>, SyncError> {
     // Maybe this could be speeded up by just taking the values from the last_sync_info.
     // However, scanning the actual folders ensures we are robust to (more-or-less) accidental file deletions.
+    status_tx.send_progress(Progress::ListingFilesOnDevice);
 
     let music_folder = device.music_folder().ok_or(SyncError::DeviceReadError)?;
     let root_folder_path = music_folder.path();
@@ -561,6 +562,7 @@ fn files_on_device(status_tx: &status::Sender, device: &dyn Device) -> Result<Ha
 }
 
 fn populate_device_files(status_tx: &status::Sender, root_folder_path: &Path, files_on_device: &mut HashSet<PathBuf>, current_folder: &dyn Folder) {
+    print!("Scanning folder {:?}                \r", current_folder.path().display());
     match current_folder.files() {
         Err(err) => status_tx.send_warning(format!("Unable to list files from folder '{:?}': {}", current_folder.path(), err)),
         Ok(files) => {
