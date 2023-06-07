@@ -253,7 +253,7 @@ checksum = "453ad9f582a441959e5f0d088b02ce04cfe8d51a8eaf077f12ac6d3e94164ca6"
 
 [[package]]
 name = "itunes-com"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "num-derive",
  "num-traits",
@@ -882,7 +882,7 @@ checksum = "447660ad36a13288b1db4d4248e857b510e8c3a225c822ba4fb748c0aafecffd"
 
 [[package]]
 name = "winmtp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "thiserror",
  "widestring",

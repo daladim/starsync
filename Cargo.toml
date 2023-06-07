@@ -26,8 +26,8 @@ once_cell = { version = "1.17", optional = true }
 env_logger = "0.10"
 
 [target.'cfg(windows)'.dependencies]
-itunes-com = { version = "0.1", features = ["wrappers"] }
-winmtp = "0.1"
+itunes-com = { version = "0.2", features = ["wrappers"] }
+winmtp = "0.2"
 windows = { version = "0.44.0", features = [
     "implement",
     "Win32_System_Com",
