@@ -56,7 +56,9 @@ struct SyncArgs {
 
 
 fn main() {
-    env_logger::init();
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or("RUST_LOG", "debug")
+    );
 
     let cli = Cli::parse();
 
@@ -174,7 +176,7 @@ fn cli_sync_device(args: &SyncArgs) -> Result<(), Box<dyn Error>> {
 
     match sync_thread.join() {
         Err(err) => std::panic::resume_unwind(err),
-        Ok(Err(err)) => println!("Sync failed: {:?}", err),
+        Ok(Err(err)) => println!("Sync failed: {}", err),
         Ok(Ok(0)) => println!("Sync successfully completed."),
         Ok(Ok(n_warns)) => println!("Sync completed with {} warnings", n_warns),
     };
