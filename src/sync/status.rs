@@ -95,6 +95,10 @@ pub enum Progress {
     SyncingFiles,
     /// Pushing the updated playlists to the device
     PushingPlaylists,
+    /// Pushing song ratings to the device
+    PushingRatings,
+    /// Update the status of the latest sync onto the device, so that it knows how it went
+    UpdatingSyncInfo,
     /// Sync has completed
     Done,
 }

@@ -169,7 +169,7 @@ impl SyncManager {
         }
 
         // Update the last sync info
-        update_sync_info(self.device.as_ref(), file_set, playlists)
+        update_sync_info(status_tx, self.device.as_ref(), file_set, playlists)
             .map_err(|err| SyncError::UpdateSyncInfoFailed(err.to_string()))?;
 
         status_tx.send_progress(Progress::Done);
@@ -663,6 +663,8 @@ fn push_playlists(status_tx: &status::Sender, device: &dyn Device, source: &dyn 
 }
 
 fn push_star_playlists(status_tx: &status::Sender, device: &dyn Device, file_set: &FileSet) {
+    status_tx.send_progress(Progress::PushingRatings);
+
     for (rating, songs) in file_set.song_paths_by_rating().iter() {
         match crate::source::create_m3u(
             songs.iter(),
@@ -680,7 +682,9 @@ fn push_star_playlists(status_tx: &status::Sender, device: &dyn Device, file_set
     }
 }
 
-fn update_sync_info(device: &dyn Device, file_set: FileSet, playlists: PlaylistsSet) -> Result<(), Box<dyn Error>> {
+fn update_sync_info(status_tx: &status::Sender, device: &dyn Device, file_set: FileSet, playlists: PlaylistsSet) -> Result<(), Box<dyn Error>> {
+    status_tx.send_progress(Progress::UpdatingSyncInfo);
+
     let FileSet{ common_ancestor, files_data, .. } = file_set;
     let song_data_to_serialize = files_data
         .iter()
