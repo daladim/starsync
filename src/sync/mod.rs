@@ -298,6 +298,13 @@ fn reverse_sync_ratings(
     let rating_playlists_on_device = playlists_on_device(status_tx, RequestedPlaylistKind::Ratings, device, previous_sync_info)
        .map_err(|err| ReverseSyncPlaylistError::ListingDevicePlaylistsFailed(err))?;
 
+
+    // Assert all 5 ratings playlists are on the device
+    if are_all_ratings_playslists_on_device(&rating_playlists_on_device) == false {
+        status_tx.send_warning("Skipping ratings reverse sync, because the device does not contain lists of songs for every possible rating.");
+        return Ok(())
+    }
+
     // Get the IDs of every file on the device
     // This will be useful when detecting track that have no rating
     let mut no_ratings: HashSet<ItemId> = files_on_device.iter().filter_map(|path| previous_sync_info.id_for_relative_path(path)).collect();
@@ -366,6 +373,24 @@ fn reverse_sync_ratings(
     }
 
     Ok(())
+}
+
+fn are_all_ratings_playslists_on_device(rating_playlists_on_device: &HashMap<String, M3u>) -> bool {
+    let mut found_playlists = vec![
+        true,   // there is no rating at 0 stars, so the 0th item will never be updated
+        false,  // 1 star
+        false,  // 2 stars
+        false,  // 3 stars
+        false,  // 4 stars
+        false,  // 5 stars
+    ];
+    for (pl_name, _) in rating_playlists_on_device {
+        ActualPlaylistKind::classify(pl_name)
+            .stars()
+            .and_then(|s| found_playlists.get_mut(s as usize))
+            .map(|f| *f = true);
+    }
+    found_playlists.iter().all(|v| *v)
 }
 
 fn reverse_sync_playlist(status_tx: &status::Sender, source: &dyn Source, playlist_name: &str, playlist_id: ItemId, ancestor_song_ids: &[ItemId], device_song_ids: &[ItemId]) -> Result<(), Box<dyn Error>> {
