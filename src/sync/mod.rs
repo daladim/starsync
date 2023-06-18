@@ -269,13 +269,25 @@ fn reverse_sync_playlists(status_tx: &status::Sender, previous_sync_info: &Optio
     Ok(())
 }
 
+
+
+#[derive(thiserror::Error, Debug)]
+pub enum ReverseSyncRatingsError {
+    #[error("Unable to get playlists from device: {0}")]
+    ListingDevicePlaylistsFailed(SyncError),
+    #[error("The device does not contain lists of songs for every possible rating.")]
+    MisingRatingsLists,
+    #[error("Some songs on the device are registered with different ratings.")]
+    DuplicateRatingsForASong,
+}
+
 fn reverse_sync_ratings(
     status_tx: &status::Sender,
     previous_sync_info: &Option<SyncInfo>,
     files_on_device: &HashSet<PathBuf>,
     source: &dyn Source,
     device: &dyn Device,
-) -> Result<(), ReverseSyncPlaylistError> {
+) -> Result<(), ReverseSyncRatingsError> {
     //
     //
     //
@@ -296,13 +308,12 @@ fn reverse_sync_ratings(
     };
 
     let rating_playlists_on_device = playlists_on_device(status_tx, RequestedPlaylistKind::Ratings, device, previous_sync_info)
-       .map_err(|err| ReverseSyncPlaylistError::ListingDevicePlaylistsFailed(err))?;
+       .map_err(|err| ReverseSyncRatingsError::ListingDevicePlaylistsFailed(err))?;
 
 
     // Assert all 5 ratings playlists are on the device
     if are_all_ratings_playslists_on_device(&rating_playlists_on_device) == false {
-        status_tx.send_warning("Skipping ratings reverse sync, because the device does not contain lists of songs for every possible rating.");
-        return Ok(())
+        return Err(ReverseSyncRatingsError::MisingRatingsLists);
     }
 
     // Get the IDs of every file on the device
@@ -312,7 +323,7 @@ fn reverse_sync_ratings(
     // Convert:
     // * playlist name to rating value
     // * file paths to song IDs
-    let mut ratings_on_device: HashMap<Option<u8>, HashSet<ItemId>> = HashMap::new();
+    let mut ratings_on_device = HashMap::new();
 
     for (name, m3u) in rating_playlists_on_device {
         match ActualPlaylistKind::classify(&name).stars() {
@@ -336,6 +347,22 @@ fn reverse_sync_ratings(
             },
         };
     }
+
+    // Assert the same track is not in several rating PL at the same time
+    if have_sets_overlap(&ratings_on_device, 1, 2).unwrap_or(true)
+    || have_sets_overlap(&ratings_on_device, 1, 3).unwrap_or(true)
+    || have_sets_overlap(&ratings_on_device, 1, 4).unwrap_or(true)
+    || have_sets_overlap(&ratings_on_device, 1, 5).unwrap_or(true)
+    || have_sets_overlap(&ratings_on_device, 2, 3).unwrap_or(true)
+    || have_sets_overlap(&ratings_on_device, 2, 4).unwrap_or(true)
+    || have_sets_overlap(&ratings_on_device, 2, 5).unwrap_or(true)
+    || have_sets_overlap(&ratings_on_device, 3, 4).unwrap_or(true)
+    || have_sets_overlap(&ratings_on_device, 3, 5).unwrap_or(true)
+    || have_sets_overlap(&ratings_on_device, 4, 5).unwrap_or(true)
+    {
+        return Err(ReverseSyncRatingsError::DuplicateRatingsForASong);
+    }
+
 
     // Add the songs that have no rating
     ratings_on_device.insert(None, no_ratings);
@@ -391,6 +418,13 @@ fn are_all_ratings_playslists_on_device(rating_playlists_on_device: &HashMap<Str
             .map(|f| *f = true);
     }
     found_playlists.iter().all(|v| *v)
+}
+
+fn have_sets_overlap(ratings_on_device: &HashMap<Option<u8>, HashSet<ItemId>>, i: u8, j: u8) -> Option<bool> {
+    let set_a = ratings_on_device.get(&Some(i))?;
+    let set_b = ratings_on_device.get(&Some(j))?;
+
+    Some(set_a.is_disjoint(set_b) == false)
 }
 
 fn reverse_sync_playlist(status_tx: &status::Sender, source: &dyn Source, playlist_name: &str, playlist_id: ItemId, ancestor_song_ids: &[ItemId], device_song_ids: &[ItemId]) -> Result<(), Box<dyn Error>> {
