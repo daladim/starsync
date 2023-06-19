@@ -60,7 +60,7 @@ pub trait Track {
     fn name(&self) -> String;
     fn id(&self) -> ItemId;
     fn absolute_path(&self) -> Result<PathBuf, Box<dyn Error>>;
-    fn rating(&self) -> Option<u8>;
+    fn rating(&self, use_computed_ratings: bool) -> Option<u8>;
     fn set_rating(&self, new_rating: Option<u8>) -> Result<(), Box<dyn Error>>;
     fn file_size(&self) -> Result<usize, Box<dyn Error>>;
 }

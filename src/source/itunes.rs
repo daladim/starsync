@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
+use itunes_com::sys::ITRatingKind;
 use itunes_com::wrappers::iTunes;
 use itunes_com::wrappers::UserPlaylist as ITUserPlaylist;
 use itunes_com::wrappers::Track as ITTrack;
@@ -216,14 +217,25 @@ impl Track for ITTrack {
         }
     }
 
-    fn rating(&self) -> Option<u8> {
-        match self.Rating() {
+    fn rating(&self, use_computed_ratings: bool) -> Option<u8> {
+        match self.Rating().map(|r| r.stars()) {
             Err(err) => {
                 // Should not happen, we're an ITTrack!
                 log::warn!("Unable to get rating for track {}: {}", self.name(), err);
                 None
             },
-            Ok(rating) => rating.stars(),
+            Ok(None) => None,
+            Ok(Some(stars)) => {
+                if use_computed_ratings == false
+                && self.as_file_or_cd_track().and_then(|foct| foct.ratingKind().ok()) == Some(ITRatingKind::ITRatingKindComputed)
+                {
+                    // Note: for some reason, many songs with no stars have a "computed rating".
+                    log::debug!("Ignoring rating for track {}, because it is computed", self.name());
+                    None
+                } else {
+                    Some(stars)
+                }
+            }
         }
     }
 

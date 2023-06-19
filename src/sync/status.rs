@@ -64,7 +64,7 @@ pub enum Message {
     /// Reverse-updating a playlist into the source
     UpdatingPlaylistIntoSource{ new_content: Vec<ItemId>},
     /// Importing a rating change back into the source
-    UpdatingSongRatingIntoSource{ track_name: String, new_rating: Rating },
+    UpdatingSongRatingIntoSource{ track_name: String, new_rating: Rating, current_rating_on_source: Rating },
     /// A music file is about to be copied
     PushingFile(String),
     /// A music file is about to be removed

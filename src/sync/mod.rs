@@ -145,8 +145,8 @@ impl SyncManager {
         }
 
         // Reverse sync for ratings
-        if self.config.include_stars() {
-            if let Err(err) = reverse_sync_ratings(status_tx, &previous_sync_info, &files_on_device, self.source.as_ref(), self.device.as_ref()) {
+        if self.config.include_ratings() {
+            if let Err(err) = reverse_sync_ratings(status_tx, &previous_sync_info, &files_on_device, self.source.as_ref(), self.device.as_ref(), &self.config) {
                 status_tx.send_warning(format!("{:?}", err));
             }
         }
@@ -164,7 +164,7 @@ impl SyncManager {
             .map_err(|err| SyncError::PushingPlaylistsFailed(err.to_string()))?;
 
         // Push made-up star playlists
-        if self.config.include_stars() {
+        if self.config.include_ratings() {
             push_star_playlists(status_tx, self.device.as_ref(), &file_set);
         }
 
@@ -287,6 +287,7 @@ fn reverse_sync_ratings(
     files_on_device: &HashSet<PathBuf>,
     source: &dyn Source,
     device: &dyn Device,
+    config: &Config,
 ) -> Result<(), ReverseSyncRatingsError> {
     //
     //
@@ -377,7 +378,7 @@ fn reverse_sync_ratings(
                 match source.track_by_id(track_id) {
                     None => status_tx.send_warning(format!("The rating of track {:x?} has changed on the device, but it has been removed from the source", track_id)),
                     Some(track) => {
-                        let rating_on_source = track.rating();
+                        let rating_on_source = track.rating(config.use_computed_ratings());
                         let track_name = previous_sync_info
                             .path_for_id(track_id)
                             .and_then(|p| p.file_name().map(|s| s.to_string_lossy().to_string()))
@@ -388,7 +389,7 @@ fn reverse_sync_ratings(
                             status_tx.send_info(format!("Song {:?} has changed its rating on both the source and the device. That's a conflict, let the source win.", track_name));
                         } else {
                             // We are cleared to update the rating on the source
-                            status_tx.send(Message::UpdatingSongRatingIntoSource{ track_name: track_name.clone(), new_rating: rating_on_device });
+                            status_tx.send(Message::UpdatingSongRatingIntoSource{ track_name: track_name.clone(), new_rating: rating_on_device, current_rating_on_source: rating_on_source });
                             if let Err(err) = track.set_rating(rating_on_device) {
                                 status_tx.send_warning(format!("Unable to update rating for track '{}' (to {:?} stars): {}", &track_name, rating_on_device, err));
                             }
@@ -478,7 +479,7 @@ fn required_files(status_tx: &status::Sender, source: &dyn Source, config: &Conf
                                         Ok(size) => size,
                                     };
 
-                                    let rating = track.rating();
+                                    let rating = track.rating(config.use_computed_ratings());
 
                                     if data_with_absolute_paths.insert(
                                         absolute_path.clone(),
