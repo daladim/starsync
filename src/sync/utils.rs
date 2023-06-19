@@ -51,7 +51,7 @@ impl ActualPlaylistKind {
     }
 }
 
-pub fn favourites_playlist_name(rating: u8) -> String {
+pub fn favorites_playlist_name(rating: u8) -> String {
     format!("{}{}{}", RATINGS_PLAYLIST_PREFIX, rating, RATINGS_PLAYLIST_SUFFIX)
 }
 
@@ -142,9 +142,10 @@ mod test {
         assert_eq!(ActualPlaylistKind::classify("Favourites - 0 stars.m3u"), ActualPlaylistKind::Regular("Favourites - 0 stars.m3u".to_string()));
         assert_eq!(ActualPlaylistKind::classify("Favourites - 6 stars.m3u"), ActualPlaylistKind::Regular("Favourites - 6 stars.m3u".to_string()));
         assert_eq!(ActualPlaylistKind::classify("Favourites - 1 stars"), ActualPlaylistKind::Regular("Favourites - 1 stars".to_string()));
+        assert_eq!(ActualPlaylistKind::classify("Favorites - 1 stars.m3u"), ActualPlaylistKind::Regular("Favorites - 1 stars.m3u".to_string()));
         assert_eq!(ActualPlaylistKind::classify("abc.m3u"), ActualPlaylistKind::Regular("abc.m3u".to_string()));
 
-        assert_eq!(ActualPlaylistKind::classify(&favourites_playlist_name(3).to_string_lossy().to_string()), ActualPlaylistKind::Ratings(3));
+        assert_eq!(ActualPlaylistKind::classify(&favorites_playlist_name(3)), ActualPlaylistKind::Ratings(3));
 
         assert!(ActualPlaylistKind::classify("abc.m3u").matches(RequestedPlaylistKind::Regular));
         assert!(ActualPlaylistKind::classify("Favourites - 4 stars.m3u").matches(RequestedPlaylistKind::Ratings));

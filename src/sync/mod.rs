@@ -24,7 +24,7 @@ pub use info::SyncInfo;
 
 mod utils;
 use utils::{FileSet, FileData, RequestedPlaylistKind, ActualPlaylistKind};
-use utils::{favourites_playlist_name, case_insensitive_difference};
+use utils::{favorites_playlist_name, case_insensitive_difference};
 
 /// How many warnings have been issued
 pub type Warnings = usize;
@@ -732,7 +732,7 @@ fn push_star_playlists(status_tx: &status::Sender, device: &dyn Device, file_set
         ) {
             Err(err) => status_tx.send_warning(format!("Unable to generate m3u file for songs rated {} stars: {}", rating, err)),
             Ok(m3u_content) => {
-                let playlist_file_name = favourites_playlist_name(*rating);
+                let playlist_file_name = favorites_playlist_name(*rating);
                 status_tx.send(Message::PushingPlaylist(playlist_file_name.clone()));
                 if let Err(err) = device.push_playlist(&m3u_content, &OsStr::new(&playlist_file_name)) {
                     status_tx.send_warning(format!("Unable to push m3u file for rating playlist '{}': {}", playlist_file_name, err));
