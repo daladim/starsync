@@ -189,7 +189,7 @@ impl super::Device for RootObject {
     }
 
     fn push_music_file(&self, local_absolute_path: &Path, device_relative_path: &Path) -> Result<(), Box<dyn Error>> {
-        let device_folder_path = device_relative_path.parent().ok_or(format!("Path has no parent folder"))?;
+        let device_folder_path = device_relative_path.parent().ok_or("Path has no parent folder")?;
 
         // Create the parent dir, if needed
         self
