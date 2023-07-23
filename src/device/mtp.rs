@@ -23,6 +23,9 @@ use super::{File, Folder};
 
 
 
+// Let's assume we'll always use case-insensitive filesystems.
+// It looks very frequent (even for Android non-FAT filesystems)
+const CASE_SENSITIVE_FS: bool = false;
 
 
 pub fn devices() -> Vec<RootObject> {
@@ -34,7 +37,7 @@ pub fn devices() -> Vec<RootObject> {
         if let Ok(mtp_devices) = mtp_provider.enumerate_devices() {
             // A device can have multiple functional devices
             for mtp_dev in &mtp_devices {
-                if let Ok(functional_objects) = mtp_dev.open(&app_id)
+                if let Ok(functional_objects) = mtp_dev.open(&app_id, CASE_SENSITIVE_FS)
                     .and_then(|dev| dev.content())
                     .and_then(|content| content.functional_objects()) {
                         for functional_obj in functional_objects {
