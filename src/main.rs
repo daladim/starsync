@@ -2,6 +2,7 @@ use std::error::Error;
 use std::sync::mpsc;
 
 use clap::{Args, Parser, Subcommand};
+use humansize::format_size;
 
 use starsync::source::list_sources;
 use starsync::device::list_devices;
@@ -168,6 +169,11 @@ fn cli_sync_device(args: &SyncArgs) -> Result<(), Box<dyn Error>> {
             Ok(status::Message::Progress(starsync::sync::status::Progress::Done)) => {
                 log::info!("Sync done.");
                 break;
+            },
+            Ok(status::Message::PushingFile{path, file_size: _, size_so_far, total_size, n_files, i_file}) => {
+                let ratio = 100.0 * size_so_far as f32 / total_size as f32;
+                let total = format_size(total_size, humansize::DECIMAL);
+                log::debug!("Pushing file {i_file}/{n_files} ({ratio:.1}% of {total}) {path}...");
             },
             Ok(status::Message::Progress(prog)) => log::info!("===={:?}=====", prog),
             Ok(status::Message::Info(info)) => log::info!("{}", info),

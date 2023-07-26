@@ -528,7 +528,10 @@ fn sync_files(status_tx: &status::Sender, file_set: &FileSet, files_on_device: &
 
     // What files are there on the device already?
     let files_to_remove = case_insensitive_difference(&files_on_device, &expected_files);
-    let files_to_push = case_insensitive_difference(&expected_files, &files_on_device);
+    let paths_to_push = case_insensitive_difference(&expected_files, &files_on_device);
+    let files_to_push: Vec<_> = paths_to_push
+        .filter_map(|path| files_data.get(path).map(|item| (path, item)))
+        .collect();
 
     // Actually sync files
     status_tx.send_progress(Progress::SyncingFiles);
@@ -543,11 +546,28 @@ fn sync_files(status_tx: &status::Sender, file_set: &FileSet, files_on_device: &
         }
     }
 
-    for file_to_push in files_to_push {
-        status_tx.send(Message::PushingFile(file_to_push.display().to_string()));
-        let local_absolute_path = common_ancestor.join(file_to_push);
-        if let Err(err) = device.push_music_file(&local_absolute_path, file_to_push) {
-            status_tx.send_warning(format!("Unable to push file {}: {}", file_to_push.display(), err));
+    let mut i_file = 0;
+    let n_files = files_to_push.len();
+    let mut size_so_far = 0;
+    let total_size = files_to_push.iter().fold(0, |size, (_, data)| size + data.file_size);
+    for (path_to_push, file_data) in files_to_push {
+        i_file += 1;
+        status_tx.send(Message::PushingFile{
+            path: path_to_push.display().to_string(),
+            file_size: file_data.file_size,
+            size_so_far,
+            total_size,
+            n_files,
+            i_file,
+        });
+        size_so_far += file_data.file_size;
+
+        let local_absolute_path = common_ancestor.join(path_to_push);
+        if let Err(err) = device.push_music_file(&local_absolute_path, path_to_push) {
+            status_tx.send_warning(format!("Unable to push file {}: {}. Trying again...", path_to_push.display(), err));
+            if let Err(err) = device.push_music_file(&local_absolute_path, path_to_push) {
+                status_tx.send_warning(format!("Unable to push file {}: {}. Giving up.", path_to_push.display(), err));
+            }
         }
     }
 

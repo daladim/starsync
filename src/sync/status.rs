@@ -2,14 +2,6 @@ use std::sync::atomic::AtomicUsize;
 
 use super::{ItemId, Rating};
 
-//
-//
-//
-//
-//
-// TODO: send progress (file size/total)
-//
-
 pub struct Sender {
     tx: std::sync::mpsc::Sender<Message>,
     n_warns: AtomicUsize,
@@ -66,7 +58,7 @@ pub enum Message {
     /// Importing a rating change back into the source
     UpdatingSongRatingIntoSource{ track_name: String, new_rating: Rating, current_rating_on_source: Rating },
     /// A music file is about to be copied
-    PushingFile(String),
+    PushingFile{ path: String, file_size: usize, size_so_far: usize, total_size: usize, n_files: usize, i_file: usize },
     /// A music file is about to be removed
     RemovingFile(String),
     /// A playlist file is about to be copied
