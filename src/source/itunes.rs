@@ -149,10 +149,11 @@ fn change_contents_to_inner(playlist: &ITUserPlaylist, new_content: &[ItemId]) -
                     if i_th_track.persistent_id() == Ok(required_id.0) {
                         // Both lists match up to index i.
                         // Let's proceed to the next required track
+                        log::trace!("Right track {:?} ({:?})", i_th_track.persistent_id(), i_th_track.name());
                         break;
                     } else {
                         // Let's remove the non-matching track. Maybe the next one will
-                        log::trace!("Deleting {:?}", i_th_track.name());
+                        log::trace!("Deleting {:?} ({:?})", i_th_track.persistent_id(), i_th_track.name());
                         i_th_track.Delete()?;
                     }
                 },
@@ -162,7 +163,7 @@ fn change_contents_to_inner(playlist: &ITUserPlaylist, new_content: &[ItemId]) -
                         .ok_or(format!("Unable to find track with ID {:?}", required_id))?;
 
                     // playlist.AddTrack(&required_track.as_variant())?;
-                    log::trace!("Adding {:?}", required_track.name());
+                    log::trace!("Adding {:?} ({:?})", required_id, required_track.name());
                     if let Err(err) = playlist.AddTrack(&required_track.as_variant()) {
                         println!("WTF? {:?} when adding {}", err, required_track.name());
                         return Err(Box::new(err) as Box<dyn Error>);
