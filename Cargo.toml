@@ -32,7 +32,8 @@ windows = { version = "0.44.0", features = [
     "implement",
     "Win32_System_Com",
     "Win32_System_Ole",
-    "Win32_Foundation"
+    "Win32_Foundation",
+    "Win32_System_Power"
 ] }
 
 
