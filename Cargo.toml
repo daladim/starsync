@@ -42,4 +42,6 @@ windows = { version = "0.44.0", features = [
 rand = "0.8"
 
 [patch.crates-io]
+itunes-com = { path = "../itunes-com" }
+winmtp = { path = "../winmtp" }
 diffy = { git = "https://github.com/daladim/diffy", branch = "merge_arbitrary_types" }

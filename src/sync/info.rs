@@ -69,6 +69,7 @@ impl SyncInfo {
     }
 
     pub fn has_playlist_file_name<S: AsRef<str>>(&self, needle: S) -> bool {
+        // TODO: case-insensitive?
         self.playlists.iter().any(|(file_name, _)| file_name == needle.as_ref())
     }
 }

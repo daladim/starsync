@@ -95,5 +95,8 @@ pub fn list_devices(only_inited_devices: bool) -> Vec<Box<dyn Device>> {
 pub fn get(name: &str) -> Option<Box<dyn Device>> {
     // Not very smart, as it enumerates all devices.
     // But this is not too costly (compared to the rest of what StarSync does), so that's fine
+
+    // TODO: case-insensitive?
+    // TODO: trim spaces? What if the caller forgot quotes?
     list_devices(false).into_iter().find(|dev| dev.name() == name)
 }

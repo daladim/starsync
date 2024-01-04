@@ -29,6 +29,7 @@ pub trait Source {
 
 pub trait Playlist {
     fn name(&self) -> String;
+    // TODO: iterator?
     fn tracks(&self) -> Result<Vec<Box<dyn Track>>, Box<dyn Error>>;
     fn id(&self) -> ItemId;
     /// Change the content of this playlist.
@@ -49,6 +50,7 @@ pub trait Playlist {
                 .strip_prefix(common_ancestor)
                 .map(|r| r.to_path_buf())
                 .map_err(|_| format!("Track '{}' is not a child of the common ancestor '{}'", track.name(), common_ancestor.display()))?;
+                // TODO: lowercase?
             relative_paths.push(relative_path)
         }
 
@@ -91,5 +93,7 @@ pub fn list_sources() -> Vec<Box<dyn Source>> {
 pub fn get(name: &str) -> Option<Box<dyn Source>> {
     // Not very smart, as it enumerates all sources.
     // For now, we only have one source, so that's fine
+
+    // TODO: case insensitive?
     list_sources().into_iter().find(|source| source.name() == name)
 }

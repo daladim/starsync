@@ -294,8 +294,10 @@ fn reverse_sync_ratings(
     //
     //
     //
+    //
     // TODO: review all the list iterations and collecting and conversions
     //
+    // TODO: ignore automatic ratings?
 
     status_tx.send_progress(Progress::ReverseSyncRatings);
 
@@ -577,11 +579,19 @@ fn sync_files(status_tx: &status::Sender, file_set: &FileSet, files_on_device: &
 }
 
 fn playlists_on_device(status_tx: &status::Sender, requested_kind: RequestedPlaylistKind, device: &dyn Device, previous_sync_info: &SyncInfo) -> Result<HashMap<String, M3u>, SyncError> {
+
+    //
+    //
+    //
+    // TODO: check files exist on device? Otherwise, this will lead to strange errors in future steps
+    //
+
     let playlists_folder = device.starsync_folder().ok_or(SyncError::DeviceReadError)?;
     let mut playlists_on_device = HashMap::new();
 
     for file in playlists_folder.files().map_err(|_err| SyncError::DeviceReadError)? {
         let file_path = file.path();
+        // TODO: case insensitive
         if file_path.extension() == Some(OsStr::new("m3u")) {
             let file_name = file_path
                 .file_name()
@@ -687,6 +697,7 @@ fn remove_current_playlists(status_tx: &status::Sender, main_folder: &dyn Folder
     let m3u_extension = OsStr::new("m3u");
 
     for mut file in main_folder.files().map_err(|_| SyncError::DeviceReadError)? {
+        // TODO: case insensitive (? maybe?)
         if file.path().extension() == Some(m3u_extension) {
             status_tx.send(Message::RemovingPlaylist(file.path().display().to_string()));
             if let Err(err) = file.delete() {
@@ -776,6 +787,9 @@ fn update_sync_info(status_tx: &status::Sender, device: &dyn Device, file_set: F
         song_data_to_serialize,
         playlists,
     );
+
+
+    // TODO: create a backup of the last info
 
     device.push_sync_infos(&sync_info)
 }

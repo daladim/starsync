@@ -127,6 +127,8 @@ mod tests {
         for _ in 0..6 {
             let one = Path::new("/foo/bar/baz/one.txt");
             let two = Path::new("/foo/bar/quux/quuux/two.txt");
+            // TODO: this module is not case-insensitive
+            // let two = Path::new("/foo/Bar/quux/quuux/two.txt");
             let three = Path::new("/foo/bar/baz/foo/bar");
             let result = Path::new("/foo/bar");
             let mut all = vec![one, two, three];
