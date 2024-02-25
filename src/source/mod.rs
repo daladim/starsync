@@ -3,8 +3,8 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
+#[cfg(windows)]
 pub mod itunes;
-use itunes::ITunes;
 
 mod serde_u64_hex_utils;
 
@@ -79,7 +79,8 @@ pub fn list_sources() -> Vec<Box<dyn Source>> {
     let mut sources = Vec::new();
 
     // Is there an iTunes instance?
-    if let Some(itunes) = ITunes::try_new() {
+    #[cfg(windows)]
+    if let Some(itunes) = itunes_win::ITunes::try_new() {
         sources.push(Box::new(itunes) as Box<dyn Source>);
     }
 

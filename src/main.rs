@@ -128,7 +128,7 @@ fn cli_sync_device(args: &SyncArgs) -> Result<(), Box<dyn Error>> {
     log::info!("Syncing {}...", device_name);
 
     let sync_thread = std::thread::spawn(move || {
-        let _prevent_computer_going_to_sleep = starsync::PleaseStayAwake::new();
+        let _prevent_computer_going_to_sleep = starsync::utils::PleaseStayAwake::new();
 
         let sync_manager = SyncManager::with_device(&device_name).unwrap(
             //

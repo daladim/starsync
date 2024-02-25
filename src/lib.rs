@@ -73,31 +73,3 @@ pub fn deinit_device(device_name: &str) -> Result<(), DeinitError> {
     device.remove_folders().map_err(|_err| DeinitError::WriteError)?;
     Ok(())
 }
-
-
-/// A RAII wrapper to tell Windows not to go to sleep while a sync is in progress
-pub struct PleaseStayAwake {}
-
-impl PleaseStayAwake {
-    pub fn new() -> Self {
-        unsafe{
-            windows::Win32::System::Power::SetThreadExecutionState(
-                windows::Win32::System::Power::ES_CONTINUOUS |
-                // windows::Win32::System::Power::ES_AWAYMODE_REQUIRED |
-                windows::Win32::System::Power::ES_SYSTEM_REQUIRED
-            );
-        }
-
-        Self {}
-    }
-}
-
-impl Drop for PleaseStayAwake {
-    fn drop(&mut self) {
-        unsafe{
-            windows::Win32::System::Power::SetThreadExecutionState(
-                windows::Win32::System::Power::ES_CONTINUOUS
-            );
-        }
-    }
-}

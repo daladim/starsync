@@ -9,8 +9,9 @@ use crate::config::Config;
 use crate::sync::SyncInfo;
 
 pub mod disk;
-pub mod mtp;
 pub mod m3u;
+#[cfg(windows)]
+pub mod mtp;
 
 pub const FOLDER_NAME: &str = "StarSync";
 pub const MUSIC_FOLDER_NAME: &str = "music";
@@ -75,7 +76,8 @@ pub trait File {
 pub fn list_devices(only_inited_devices: bool) -> Vec<Box<dyn Device>> {
     let mut devices = Vec::new();
 
-    for mtp_dev in mtp::devices() {
+    #[cfg(windows)]
+    for mtp_dev in mtp_win::devices() {
         let dev = Box::new(mtp_dev) as Box<dyn Device>;
         if only_inited_devices == false || dev.is_inited() {
             devices.push(dev)

@@ -118,6 +118,7 @@ impl Playlist for ITUserPlaylist {
 
             match change_contents_to_inner(&list, new_content) {
                 Ok(()) => break,
+                // Err(ITUNES_E_OBJECTLOCKED) => // no need to work around (e.g. smart, read-only playlist)
                 Err(err) => {
                     log::info!("Working around an iTunes bug ({}) when syncing the playlist. Trying again.", err);
                     attempts += 1;

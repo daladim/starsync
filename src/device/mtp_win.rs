@@ -1,11 +1,4 @@
-//! MTP devices
-
-//
-//
-//
-//
-// TODO: revert
-#![allow(unused_variables)]
+//! MTP devices on Windows
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
