@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::path::PathBuf;
+use std::num::NonZeroU8;
 
 use itunes_com::sys::ITRatingKind;
 use itunes_com::wrappers::iTunes;
@@ -11,7 +12,7 @@ use itunes_com::wrappers::IITTrackWrapper;
 use itunes_com::wrappers::ITunesRelatedObject;
 use itunes_com::wrappers::Iterable;
 
-use super::{Source, Playlist, Track, TrackId, PlaylistId};
+use super::{Source, Playlist, Rating, Track, TrackId, PlaylistId};
 
 pub struct ITunes {
     inner: iTunes,
@@ -227,7 +228,7 @@ impl Track for ITTrack {
         }
     }
 
-    fn rating(&self, use_computed_ratings: bool) -> Option<u8> {
+    fn rating(&self, use_computed_ratings: bool) -> Rating {
         match self.Rating().map(|r| r.stars()) {
             Err(err) => {
                 // Should not happen, we're an ITTrack!
@@ -243,14 +244,15 @@ impl Track for ITTrack {
                     log::debug!("Ignoring rating for track {}, because it is computed", self.name());
                     None
                 } else {
-                    Some(stars)
+                    NonZeroU8::new(stars)
                 }
             }
         }
     }
 
-    fn set_rating(&self, new_rating: Option<u8>) -> Result<(), Box<dyn Error>> {
-        Ok(self.set_Rating(itunes_com::wrappers::types::Rating::from_stars(new_rating))?)
+    fn set_rating(&self, new_rating: Rating) -> Result<(), Box<dyn Error>> {
+        let new_rating_u8 = new_rating.map(|nzu| nzu.get());
+        Ok(self.set_Rating(itunes_com::wrappers::types::Rating::from_stars(new_rating_u8))?)
     }
 
     fn file_size(&self) -> Result<usize, Box<dyn Error>> {

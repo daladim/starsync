@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{PathBuf, Path};
+use std::num::NonZeroU8;
 
 use crate::source::{TrackId, Rating};
 
@@ -19,7 +20,7 @@ pub enum ActualPlaylistKind {
     /// A regular user playlist
     Regular(String),
     /// A synthetic playlist that actually is just a bag of songs that have a given rating
-    Ratings(u8),
+    Ratings(NonZeroU8),
 }
 
 impl ActualPlaylistKind {
@@ -27,8 +28,8 @@ impl ActualPlaylistKind {
         match m3u_file_name
             .strip_prefix(RATINGS_PLAYLIST_PREFIX)
             .and_then(|rest| rest.strip_suffix(RATINGS_PLAYLIST_SUFFIX))
-            .and_then(|digit| digit.parse::<u8>().ok())
-            .filter(|stars| *stars >= 1 && *stars <= 5)
+            .and_then(|digit| digit.parse::<NonZeroU8>().ok())
+            .filter(|stars_nzu| *stars_nzu <= NonZeroU8::new(5).unwrap())
         {
             Some(stars) => Self::Ratings(stars),
             None => Self::Regular(m3u_file_name.to_string()),
@@ -43,7 +44,7 @@ impl ActualPlaylistKind {
         )
     }
 
-    pub fn stars(&self) -> Option<u8> {
+    pub fn stars(&self) -> Rating {
         match self {
             Self::Ratings(stars) => Some(*stars),
             _ => None,
@@ -84,7 +85,7 @@ impl FileSet {
 
         for (path, data) in &self.files_data {
             data.rating
-                .and_then(|stars| rated_songs.get_mut(&stars))
+                .and_then(|stars| rated_songs.get_mut(&stars.get()))
                 .map(|this_rating| this_rating.push(path.as_path()));
         }
 

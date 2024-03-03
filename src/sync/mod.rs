@@ -8,6 +8,7 @@ use std::ffi::OsStr;
 use std::error::Error;
 use std::collections::{HashSet, HashMap};
 use std::sync::mpsc::{Sender, Receiver};
+use std::num::NonZeroU8;
 
 use crate::device::{Device, Folder};
 use crate::device::m3u::M3u;
@@ -415,15 +416,15 @@ fn are_all_ratings_playslists_on_device(rating_playlists_on_device: &HashMap<Str
     for (pl_name, _) in rating_playlists_on_device {
         ActualPlaylistKind::classify(pl_name)
             .stars()
-            .and_then(|s| found_playlists.get_mut(s as usize))
+            .and_then(|s| found_playlists.get_mut(s.get() as usize))
             .map(|f| *f = true);
     }
     found_playlists.iter().all(|v| *v)
 }
 
-fn have_sets_overlap(ratings_on_device: &HashMap<Option<u8>, HashSet<TrackId>>, i: u8, j: u8) -> Option<bool> {
-    let set_a = ratings_on_device.get(&Some(i))?;
-    let set_b = ratings_on_device.get(&Some(j))?;
+fn have_sets_overlap(ratings_on_device: &HashMap<Rating, HashSet<TrackId>>, i: u8, j: u8) -> Option<bool> {
+    let set_a = ratings_on_device.get(&Some(NonZeroU8::new(i)?))?;
+    let set_b = ratings_on_device.get(&Some(NonZeroU8::new(j)?))?;
 
     Some(set_a.is_disjoint(set_b) == false)
 }

@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::num::NonZeroU8;
 
 #[cfg(windows)]
 pub mod itunes;
@@ -26,7 +27,7 @@ pub enum PlaylistId{
 
 
 /// The user rating of a track (None, or between 1 and 5 stars)
-pub type Rating = Option<u8>;
+pub type Rating = Option<NonZeroU8>;
 
 pub trait Source {
     fn name(&self) -> &str;
@@ -70,8 +71,8 @@ pub trait Track {
     fn name(&self) -> String;
     fn id(&self) -> TrackId;
     fn absolute_path(&self) -> Result<PathBuf, Box<dyn Error>>;
-    fn rating(&self, use_computed_ratings: bool) -> Option<u8>;
-    fn set_rating(&self, new_rating: Option<u8>) -> Result<(), Box<dyn Error>>;
+    fn rating(&self, use_computed_ratings: bool) -> Rating;
+    fn set_rating(&self, new_rating: Rating) -> Result<(), Box<dyn Error>>;
     fn file_size(&self) -> Result<usize, Box<dyn Error>>;
 }
 
