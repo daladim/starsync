@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{PathBuf, Path};
 
-use crate::source::{ItemId, Rating};
+use crate::source::{TrackId, Rating};
 
 const RATINGS_PLAYLIST_PREFIX: &str = "Favourites - ";
 const RATINGS_PLAYLIST_SUFFIX: &str = " stars.m3u";
@@ -60,7 +60,7 @@ pub fn favorites_playlist_name(rating: u8) -> String {
 pub struct FileData {
     /// Size (in bytes) of the file
     pub file_size: usize,
-    pub id: ItemId,
+    pub id: TrackId,
     pub rating: Rating,
 }
 

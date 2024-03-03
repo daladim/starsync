@@ -11,7 +11,7 @@ use std::sync::mpsc::{Sender, Receiver};
 
 use crate::device::{Device, Folder};
 use crate::device::m3u::M3u;
-use crate::source::{Source, ItemId, Rating};
+use crate::source::{PlaylistId, Rating, Source, TrackId};
 use crate::config::Config;
 use crate::utils::current_hostname;
 
@@ -29,7 +29,7 @@ use utils::{favorites_playlist_name, case_insensitive_difference};
 /// How many warnings have been issued
 pub type Warnings = usize;
 
-type PlaylistsSet = HashMap<String, (ItemId, Vec<ItemId>)>;
+type PlaylistsSet = HashMap<String, (PlaylistId, Vec<TrackId>)>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum SyncError {
@@ -210,7 +210,7 @@ impl SyncValidator {
     }
 }
 
-fn m3u_to_song_ids(status_tx: &status::Sender, playlist: M3u, previous_sync_info: &SyncInfo) -> Vec<ItemId> {
+fn m3u_to_song_ids(status_tx: &status::Sender, playlist: M3u, previous_sync_info: &SyncInfo) -> Vec<TrackId> {
     playlist
         .paths()
         .filter_map(|path| previous_sync_info
@@ -247,19 +247,19 @@ fn reverse_sync_playlists(status_tx: &status::Sender, previous_sync_info: &Optio
         .map_err(|err| ReverseSyncPlaylistError::ListingDevicePlaylistsFailed(err))?;
 
     // Convert file paths to song IDs
-    let playlists_on_device: HashMap<String, Vec<ItemId>> = playlists_on_device.into_iter()
+    let content_on_device: HashMap<String, Vec<TrackId>> = playlists_on_device.into_iter()
         .map(|(name, playlist)|
             (name, m3u_to_song_ids(status_tx, playlist, previous_sync_info))
         )
         .collect();
 
-    for (playlist_name_on_device, device_song_ids) in playlists_on_device {
+    for (playlist_name_on_device, device_song_ids) in content_on_device {
         match previous_sync_info.playlist(&playlist_name_on_device) {
             None => {
                 status_tx.send_warning(format!("Unable to get info about the last sync of playlist '{}'.", playlist_name_on_device));
             },
             Some((playlist_id, ancestor_song_ids)) => {
-                if let Err(err) = reverse_sync_playlist(status_tx, source, &playlist_name_on_device, *playlist_id, ancestor_song_ids, &device_song_ids) {
+                if let Err(err) = reverse_sync_playlist(status_tx, source, &playlist_name_on_device, &playlist_id, ancestor_song_ids, &device_song_ids) {
                     status_tx.send_warning(format!("Unable to reverse sync playlist '{}': {}", playlist_name_on_device, err));
                 }
             }
@@ -319,7 +319,7 @@ fn reverse_sync_ratings(
 
     // Get the IDs of every file on the device
     // This will be useful when detecting track that have no rating
-    let mut no_ratings: HashSet<ItemId> = files_on_device.iter().filter_map(|path| previous_sync_info.id_for_relative_path(path)).collect();
+    let mut no_ratings: HashSet<TrackId> = files_on_device.iter().filter_map(|path| previous_sync_info.id_for_relative_path(path)).collect();
 
     // Convert:
     // * playlist name to rating value
@@ -421,18 +421,18 @@ fn are_all_ratings_playslists_on_device(rating_playlists_on_device: &HashMap<Str
     found_playlists.iter().all(|v| *v)
 }
 
-fn have_sets_overlap(ratings_on_device: &HashMap<Option<u8>, HashSet<ItemId>>, i: u8, j: u8) -> Option<bool> {
+fn have_sets_overlap(ratings_on_device: &HashMap<Option<u8>, HashSet<TrackId>>, i: u8, j: u8) -> Option<bool> {
     let set_a = ratings_on_device.get(&Some(i))?;
     let set_b = ratings_on_device.get(&Some(j))?;
 
     Some(set_a.is_disjoint(set_b) == false)
 }
 
-fn reverse_sync_playlist(status_tx: &status::Sender, source: &dyn Source, playlist_name: &str, playlist_id: ItemId, ancestor_song_ids: &[ItemId], device_song_ids: &[ItemId]) -> Result<(), Box<dyn Error>> {
+fn reverse_sync_playlist(status_tx: &status::Sender, source: &dyn Source, playlist_name: &str, playlist_id: &PlaylistId, ancestor_song_ids: &[TrackId], device_song_ids: &[TrackId]) -> Result<(), Box<dyn Error>> {
     status_tx.send(Message::ReverseSyncPlaylist(playlist_name.to_string()));
 
-    let local_playlist = source.playlist_by_id(playlist_id).ok_or("No such playlist")?;
-    let local_song_ids: Vec<ItemId> = local_playlist
+    let local_playlist = source.playlist_by_id(&playlist_id).ok_or("No such playlist")?;
+    let local_song_ids: Vec<TrackId> = local_playlist
         .tracks()?
         .iter()
         .map(|track| track.id())
@@ -445,7 +445,7 @@ fn reverse_sync_playlist(status_tx: &status::Sender, source: &dyn Source, playli
     }
 
     let new_song_order = diffy::merge_custom(ancestor_song_ids, &local_song_ids, device_song_ids)?;
-    let owned_ids: Vec<ItemId> = new_song_order.iter().map(|id| **id).collect();
+    let owned_ids: Vec<TrackId> = new_song_order.iter().map(|id| **id).collect();
     status_tx.send(Message::UpdatingPlaylistIntoSource{new_content: owned_ids.to_vec()});
     if let Err(err) = local_playlist.change_contents_to(&owned_ids) {
         status_tx.send_warning(format!("Unable to update the contents of playlist {}: {}", playlist_name, err));

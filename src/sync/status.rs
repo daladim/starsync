@@ -1,6 +1,6 @@
 use std::sync::atomic::AtomicUsize;
 
-use super::{ItemId, Rating};
+use super::{TrackId, Rating};
 
 pub struct Sender {
     tx: std::sync::mpsc::Sender<Message>,
@@ -54,7 +54,7 @@ pub enum Message {
     /// Reverse syncing a playlist
     ReverseSyncPlaylist(String),
     /// Reverse-updating a playlist into the source
-    UpdatingPlaylistIntoSource{ new_content: Vec<ItemId>},
+    UpdatingPlaylistIntoSource{ new_content: Vec<TrackId>},
     /// Importing a rating change back into the source
     UpdatingSongRatingIntoSource{ track_name: String, new_rating: Rating, current_rating_on_source: Rating },
     /// A music file is about to be copied

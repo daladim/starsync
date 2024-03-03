@@ -11,7 +11,7 @@ use itunes_com::wrappers::IITTrackWrapper;
 use itunes_com::wrappers::ITunesRelatedObject;
 use itunes_com::wrappers::Iterable;
 
-use super::{Source, Playlist, Track, ItemId};
+use super::{Source, Playlist, Track, TrackId, PlaylistId};
 
 pub struct ITunes {
     inner: iTunes,
@@ -46,18 +46,26 @@ impl Source for ITunes {
             .map(|list| Box::new(list) as Box<dyn Playlist>)
     }
 
-    fn playlist_by_id(&self, id: ItemId) -> Option<Box<dyn Playlist>> {
-        itunes_get_playlist_by_id(&self.inner, id)
+    fn playlist_by_id(&self, id: &PlaylistId) -> Option<Box<dyn Playlist>> {
+        let id = match id {
+            PlaylistId::Number(i) => *i,
+            _ => {
+                warn!("Invalid type ({id:?}) for playlist ID.");
+                return None;
+            }
+        };
+
+        itunes_get_playlist_by_id(&self.inner, id.as_number().ok()?)
             .map(|list| Box::new(list) as Box<dyn Playlist>)
     }
 
-    fn track_by_id(&self, id: ItemId) -> Option<Box<dyn Track>> {
+    fn track_by_id(&self, id: TrackId) -> Option<Box<dyn Track>> {
         itunes_get_track_by_id(&self.inner, id)
             .map(|track| Box::new(track) as Box<dyn Track>)
     }
 }
 
-fn itunes_get_track_by_id(i_tunes: &iTunes, id: ItemId) -> Option<ITTrack> {
+fn itunes_get_track_by_id(i_tunes: &iTunes, id: TrackId) -> Option<ITTrack> {
     i_tunes
         .LibraryPlaylist()
         .and_then(|lp| lp.Tracks())
@@ -66,7 +74,7 @@ fn itunes_get_track_by_id(i_tunes: &iTunes, id: ItemId) -> Option<ITTrack> {
         .ok()
 }
 
-fn itunes_get_playlist_by_id(i_tunes: &iTunes, id: ItemId) -> Option<ITUserPlaylist> {
+fn itunes_get_playlist_by_id(i_tunes: &iTunes, id: u64) -> Option<ITUserPlaylist> {
     i_tunes.LibrarySource().ok()?
         .Playlists().ok()?
         .ItemByPersistentID(id.0).ok()
@@ -88,22 +96,22 @@ impl Playlist for ITUserPlaylist {
             .collect())
     }
 
-    fn id(&self) -> ItemId {
+    fn id(&self) -> PlaylistId {
         match self.persistent_id() {
             Err(err) => {
                 // Should not happen, we're an ITPlaylist!
                 log::warn!("Unable to get ID for playlist {}: {}", self.name(), err);
-                ItemId(0)
+                PlaylistId::Number(0)
             },
-            Ok(id) => ItemId(id),
+            Ok(id) => PlaylistId::Number(id),
         }
     }
 
-    fn change_contents_to(&self, new_content: &[ItemId]) -> Result<(), Box<dyn Error>> {
+    fn change_contents_to(&self, new_content: &[TrackId]) -> Result<(), Box<dyn Error>> {
         // iTunes has no functions to reorder playlists, only add() and delete()
         // This will do.
 
-        let playlist_id = ItemId(self.persistent_id()?);
+        let playlist_id = self.persistent_id()?;
         let iTunes = self.iTunes_instance();
 
         // Working around an iTunes bug (at least in 12.8.0.150)
@@ -134,7 +142,7 @@ impl Playlist for ITUserPlaylist {
     }
 }
 
-fn change_contents_to_inner(playlist: &ITUserPlaylist, new_content: &[ItemId]) -> Result<(), Box<dyn Error>> {
+fn change_contents_to_inner(playlist: &ITUserPlaylist, new_content: &[TrackId]) -> Result<(), Box<dyn Error>> {
     let get_i_th_track = |i| {
         // For some reason, using ItemByPlayOrder leads to strange bugs (looking like race conditions, such as getting many ITUNES_E_OBJECTDELETED errors)
         // Using the plain `item()` is fine.
@@ -208,14 +216,14 @@ impl Track for ITTrack {
         Ok(path)
     }
 
-    fn id(&self) -> ItemId {
+    fn id(&self) -> TrackId {
         match self.persistent_id() {
             Err(err) => {
                 // Should not happen, we're an ITTrack!
                 log::warn!("Unable to get ID for track {}: {}", self.name(), err);
-                ItemId(0)
+                TrackId(0)
             },
-            Ok(id) => ItemId(id),
+            Ok(id) => TrackId(id),
         }
     }
 

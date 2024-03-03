@@ -8,12 +8,22 @@ pub mod itunes;
 
 mod serde_u64_hex_utils;
 
-/// A song (or playlist) ID
+/// A song ID
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct ItemId(
+pub struct TrackId(
     #[serde(with = "serde_u64_hex_utils")]
     pub u64
 );
+
+/// A playlist ID
+#[derive(Clone, Debug, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum PlaylistId{
+    /// Persistent ID is a number
+    /// (e.g. iTunes)
+    #[serde(with = "serde_u64_hex_utils")]
+    Number(u64),
+}
+
 
 /// The user rating of a track (None, or between 1 and 5 stars)
 pub type Rating = Option<u8>;
@@ -23,18 +33,18 @@ pub trait Source {
     fn playlists(&self) -> Result<Vec<Box<dyn Playlist>>, Box<dyn Error>>;
 
     fn playlist_by_name(&self, name: &str) -> Option<Box<dyn Playlist>>;
-    fn playlist_by_id(&self, id: ItemId) -> Option<Box<dyn Playlist>>;
-    fn track_by_id(&self, id: ItemId) -> Option<Box<dyn Track>>;
+    fn playlist_by_id(&self, id: &PlaylistId) -> Option<Box<dyn Playlist>>;
+    fn track_by_id(&self, id: TrackId) -> Option<Box<dyn Track>>;
 }
 
 pub trait Playlist {
     fn name(&self) -> String;
     fn tracks(&self) -> Result<Vec<Box<dyn Track>>, Box<dyn Error>>;
-    fn id(&self) -> ItemId;
+    fn id(&self) -> PlaylistId;
     /// Change the content of this playlist.
     ///
     /// This may merely re-order songs, but also remove or add songs.
-    fn change_contents_to(&self, new_content: &[ItemId]) -> Result<(), Box<dyn Error>>;
+    fn change_contents_to(&self, new_content: &[TrackId]) -> Result<(), Box<dyn Error>>;
 
     fn suitable_filename(&self) -> String {
         let mut sanitized_name = sanitize_filename::sanitize(self.name());
@@ -58,7 +68,7 @@ pub trait Playlist {
 
 pub trait Track {
     fn name(&self) -> String;
-    fn id(&self) -> ItemId;
+    fn id(&self) -> TrackId;
     fn absolute_path(&self) -> Result<PathBuf, Box<dyn Error>>;
     fn rating(&self, use_computed_ratings: bool) -> Option<u8>;
     fn set_rating(&self, new_rating: Option<u8>) -> Result<(), Box<dyn Error>>;
