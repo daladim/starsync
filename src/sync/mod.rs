@@ -446,10 +446,18 @@ fn reverse_sync_playlist(status_tx: &status::Sender, source: &dyn Source, playli
     }
 
     let new_song_order = diffy::merge_custom(ancestor_song_ids, &local_song_ids, device_song_ids)?;
+    log::debug!("local:  {local_song_ids:x?}");
+    log::debug!("device: {device_song_ids:x?}");
+    log::debug!("merged: {new_song_order:x?}");
+
     let owned_ids: Vec<TrackId> = new_song_order.iter().map(|id| **id).collect();
+    if local_song_ids == owned_ids {
+        status_tx.send_info(format!("Playlist {} has not been modified on the device. Not reverse syncing it.", playlist_name));
+    } else {
     status_tx.send(Message::UpdatingPlaylistIntoSource{new_content: owned_ids.to_vec()});
     if let Err(err) = local_playlist.change_contents_to(&owned_ids) {
         status_tx.send_warning(format!("Unable to update the contents of playlist {}: {}", playlist_name, err));
+        }
     }
 
     Ok(())
