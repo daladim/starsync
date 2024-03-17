@@ -1,4 +1,4 @@
-//! Sources are e.g. iTunes
+//! Sources are e.g. iTunes, Rhythmbox, etc.
 
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -6,6 +6,9 @@ use std::num::NonZeroU8;
 
 #[cfg(windows)]
 pub mod itunes;
+
+#[cfg(unix)]
+pub mod rhythmbox;
 
 mod serde_u64_hex_utils;
 
@@ -23,6 +26,10 @@ pub enum PlaylistId{
     /// (e.g. iTunes)
     #[serde(with = "serde_u64_hex_utils")]
     Number(u64),
+    /// Persistent ID is a string
+    /// (e.g. Rhythmbox).
+    /// Note that we may "lose track" of the playlist if it gets renamed...
+    Name(String),
 }
 
 
@@ -93,6 +100,11 @@ pub fn list_sources() -> Vec<Box<dyn Source>> {
     #[cfg(windows)]
     if let Some(itunes) = itunes_win::ITunes::try_new() {
         sources.push(Box::new(itunes) as Box<dyn Source>);
+    }
+
+    #[cfg(unix)]
+    if let Some(rhythmbox) = rhythmbox::Rhythmbox::try_new() {
+        sources.push(Box::new(rhythmbox) as Box<dyn Source>);
     }
 
     // TODO: could we do anything with shared iTunes libraries on the network?
