@@ -172,7 +172,6 @@ fn change_contents_to_inner(playlist: &ITUserPlaylist, new_content: &[TrackId]) 
                     let required_track = itunes_get_track_by_id(&playlist.iTunes_instance(), *required_id)
                         .ok_or(format!("Unable to find track with ID {:?}", required_id))?;
 
-                    // playlist.AddTrack(&required_track.as_variant())?;
                     log::trace!("Adding {:?} ({:?})", required_id, required_track.name());
                     if let Err(err) = playlist.AddTrack(&required_track.as_variant()) {
                         println!("WTF? {:?} when adding {}", err, required_track.name());
