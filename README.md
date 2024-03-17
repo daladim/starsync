@@ -1,16 +1,18 @@
 # starsync
 
-An app to synchronize MTP devices with iTunes libraries.
+An app to synchronize MTP devices with iTunes (Windows) and Rhythmbox (Linux) libraries.
 
 ## How to use
 
 This app uses
 * **sources** of music, playlists, ratings, etc.<br/>
-  Currently, the only supported source is the local iTunes instance
+  Currently, starsync supports these sources:
+    - the local iTunes instance (on Windows)
+    - the local Rhythmbox instance (on Linux). This requires new enough versions (that use persistent IDs, see [this issue and linked MRs](https://gitlab.gnome.org/GNOME/rhythmbox/-/issues/2071))
 * **devices** to sync content to, such as
   * connected MTP devices
-  * every local disk (that aims at supporting syncing to SD cards, but one could also sync to `C:\`, even if that does not make much sense)
-  * (for debugging purposes, in case the `debug_folder` Cargo feature is enabled) the `C:\Users\Public\Documents\` folder, slightly more convenient than the root of `C:`.
+  * every local disk (that aims at supporting syncing to SD cards, but one could also sync a to `C:\` or `/`, even if that does not make much sense)
+  * (for debugging purposes, in case the `debug_folder` Cargo feature is enabled) the `C:\Users\Public\Documents\` or `/tmp` folder, slightly more convenient than the root of `C:`.
 
 Run the app with the `starsync list-devices` or `starsync list-sources` command to list available devices or sources.
 

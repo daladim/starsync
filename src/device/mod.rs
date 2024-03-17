@@ -11,7 +11,7 @@ use crate::sync::SyncInfo;
 pub mod disk;
 pub mod m3u;
 #[cfg(windows)]
-pub mod mtp;
+pub mod mtp_win;
 
 pub const FOLDER_NAME: &str = "StarSync";
 pub const MUSIC_FOLDER_NAME: &str = "music";

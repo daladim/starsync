@@ -13,8 +13,10 @@ use crate::sync::SyncInfo;
 
 #[cfg(feature = "debug_folder")]
 use once_cell::sync::Lazy;
-#[cfg(feature = "debug_folder")]
+#[cfg(all(feature = "debug_folder", windows))]
 const DEBUG_FOLDER: Lazy<PathBuf> = Lazy::new(|| PathBuf::from(r"C:\Users\Public\Documents\"));
+#[cfg(all(feature = "debug_folder", unix))]
+const DEBUG_FOLDER: Lazy<PathBuf> = Lazy::new(|| PathBuf::from(r"/tmp/"));
 
 pub fn devices() -> Vec<LocalDevice> {
     let mut devs = Vec::new();
