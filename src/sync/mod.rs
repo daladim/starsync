@@ -338,7 +338,7 @@ fn reverse_sync_ratings(
                 // Remove tracks that are rated from no_ratings, so that it eventually lists tracks...that have no rating
                 for rated_id in &ids_with_this_rating {
                     if no_ratings.remove(rated_id) == false {
-                        status_tx.send_warning(format!("Song with ID {:x?} is rated, but it does not look like it is present on the device", rated_id));
+                        status_tx.send_warning(format!("Song with ID {:x?} is rated, but it does not look like it is present on the device, or it was in multiple rating playlists.", rated_id));
                     }
                 }
 
