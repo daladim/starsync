@@ -14,7 +14,7 @@ use std::num::NonZeroU8;
 
 use dbus::blocking::{Connection, Proxy};
 use dbus::arg::{PropMap, RefArg, Variant};
-use log::{info, warn};
+use log::{debug, info, warn};
 
 use self::rhythmdb::OrgGnomeRhythmbox3RhythmDB;
 
@@ -217,57 +217,27 @@ impl Playlist for RhythmboxPlaylist {
 
 
 fn change_contents_to_inner(playlist: &RhythmboxPlaylist, new_content: &[TrackId]) -> Result<(), Box<dyn Error>> {
-    let get_i_th_track = |i| {
-        let entries = playlist.entries()?;
-        if i < entries.len() {
-            playlist
-                .entries()
-                .map(|mut tracks| Some(tracks.swap_remove(i)))
-        } else {
-            Ok(None)
-        }
-    };
+    let session = Connection::new_session()?;
+    let proxy = session.with_proxy("org.mpris.MediaPlayer2.rhythmbox", "/org/gnome/Rhythmbox3/PlaylistManager", TIMEOUT);
 
-    let mut i = 0;
-    for required_id in new_content {
-        i += 1;
-        loop {
-            match get_i_th_track(i) {
-                Ok(Some(i_th_track)) => {
-                    if i_th_track.persistent_id() == required_id {
-                        // Both lists match up to index i.
-                        // Let's proceed to the next required track
-                        log::trace!("Right track {:?} ({:?})", i_th_track.persistent_id(), i_th_track.name());
-                        break;
-                    } else {
-                        // Let's remove the non-matching track. Maybe the next one will
-                        log::trace!("Deleting {:?} ({:?})", i_th_track.persistent_id(), i_th_track.name());
-                        playlist.remove_file(i_th_track.encoded_file_path())?;
-                    }
-                },
-                Ok(None) => {
-                    // The Rhythmbox playlist has no more tracks. Let's add the one that is required.
-                    let required_track = RhythmboxEntry::try_from_id(*required_id)?;
+    // Remove the old version
+    playlistmanager::OrgGnomeRhythmbox3PlaylistManager::delete_playlist(&proxy, &playlist.name)?;
 
-                    log::trace!("Adding {:?} ({:?})", required_id, required_track.name());
-                    playlist.add_file(&required_track.encoded_file_path())?;
-                    break;
-                },
-                Err(err) => {
-                    Err(err)?
-                }
+    // Create a new playlist
+    playlistmanager::OrgGnomeRhythmbox3PlaylistManager::create_playlist(&proxy, &playlist.name)?;
+
+    // Populate it
+    for id in new_content.iter() {
+        match RhythmboxEntry::try_from_id(*id) {
+            Err(err) => {
+                warn!("Unable to get track for ID {id:?}: {err}");
+                continue;
+            },
+            Ok(track) => {
+                let uri = track.encoded_file_path();
+                debug!("Re-building playlist {} by adding {}...", playlist.name, uri);
+                playlistmanager::OrgGnomeRhythmbox3PlaylistManager::add_to_playlist(&proxy, &playlist.name, uri)?;
             }
-        }
-    }
-
-    // The head of the Rhythmbox playlist matches the requirements.
-    // Are there remaining tracks to remove?
-    i += 1;
-    loop {
-        match get_i_th_track(i) {
-            Ok(Some(extra_track)) => playlist.remove_file(extra_track.encoded_file_path())?,
-            Ok(None) => break,
-            Err(err) => Err(err)?,
         }
     }
 
