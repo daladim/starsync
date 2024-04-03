@@ -18,6 +18,9 @@ const DEBUG_FOLDER: Lazy<PathBuf> = Lazy::new(|| PathBuf::from(r"C:\Users\Public
 #[cfg(all(feature = "debug_folder", unix))]
 const DEBUG_FOLDER: Lazy<PathBuf> = Lazy::new(|| PathBuf::from(r"/tmp/"));
 
+#[cfg(unix)]
+mod mtp_gvfs;
+
 pub fn devices() -> Vec<LocalDevice> {
     let mut devs = Vec::new();
 
@@ -26,6 +29,17 @@ pub fn devices() -> Vec<LocalDevice> {
     for disk in disks {
         devs.push(LocalDevice{ mount_point: disk.mount_point().to_owned() });
     }
+
+    #[cfg(unix)]
+    {
+        match mtp_gvfs::devices() {
+            Err(err) => log::info!("Unable to list MTP devices. Are you using GNOME? ({err})"),
+            Ok(mtp_devices) => for mount_point in mtp_devices {
+                devs.push(LocalDevice{ mount_point });
+            }
+        }
+    }
+
 
     #[cfg(feature = "debug_folder")]
     devs.push(LocalDevice{ mount_point: DEBUG_FOLDER.to_owned() });
