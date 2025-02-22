@@ -5,6 +5,7 @@ pub mod device;
 pub mod config;
 pub mod sync;
 pub mod utils;
+pub mod os;
 mod common_path;
 
 use crate::config::Config;
