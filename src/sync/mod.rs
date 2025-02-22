@@ -454,9 +454,9 @@ fn reverse_sync_playlist(status_tx: &status::Sender, source: &dyn Source, playli
     if local_song_ids == owned_ids {
         status_tx.send_info(format!("Playlist {} has not been modified on the device. Not reverse syncing it.", playlist_name));
     } else {
-    status_tx.send(Message::UpdatingPlaylistIntoSource{new_content: owned_ids.to_vec()});
-    if let Err(err) = local_playlist.change_contents_to(&owned_ids) {
-        status_tx.send_warning(format!("Unable to update the contents of playlist {}: {}", playlist_name, err));
+        status_tx.send(Message::UpdatingPlaylistIntoSource{new_content: owned_ids.to_vec()});
+        if let Err(err) = local_playlist.change_contents_to(&owned_ids) {
+            status_tx.send_warning(format!("Unable to update the contents of playlist {}: {}", playlist_name, err));
         }
     }
 
